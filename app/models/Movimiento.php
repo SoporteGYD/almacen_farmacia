@@ -2623,12 +2623,84 @@ public function generarKardex(
     string $fechaInicio = '',
     string $fechaFinal = ''
 ): array {
+    $resultado = $this->generarKardexDetallado(
+        $productoId,
+        $almacenId,
+        $fechaInicio,
+        $fechaFinal
+    );
+
+    return $resultado['movimientos'];
+}
+
+/**
+ * Kardex conciliado contra la existencia real almacenada en producto_existencias.
+ *
+ * Motivo de esta estrategia:
+ * - La base histórica no contiene un movimiento formal de inventario inicial para
+ *   todos los productos.
+ * - También existen cambios de existencia realizados directamente desde Productos.
+ * - Por lo tanto, iniciar siempre en 0 genera saldos históricos incorrectos.
+ *
+ * El saldo al cierre se reconstruye desde la existencia actual, revirtiendo los
+ * movimientos posteriores a la fecha final. Después se calcula el saldo inicial
+ * del periodo y se recorren los movimientos de manera cronológica.
+ *
+ * Cuando fecha_final es hoy (o una fecha futura), el Inv. Final coincide con la
+ * existencia actual del sistema para el producto/almacén seleccionado.
+ */
+public function generarKardexDetallado(
+    int $productoId,
+    int $almacenId = 0,
+    string $fechaInicio = '',
+    string $fechaFinal = ''
+): array {
+    $resumenVacio = [
+        'existencia_actual' => 0,
+        'inventario_inicial' => 0,
+        'total_entradas' => 0,
+        'total_salidas' => 0,
+        'inventario_final' => 0,
+        'neto_periodo' => 0,
+        'neto_posterior' => 0,
+        'diferencia_vs_actual' => 0,
+        'fecha_inicio' => $fechaInicio,
+        'fecha_final' => $fechaFinal,
+        'conciliado_actual' => false,
+    ];
+
     if ($productoId <= 0) {
-        return [];
+        return [
+            'movimientos' => [],
+            'resumen' => $resumenVacio,
+        ];
     }
 
+    $fechaInicio = $fechaInicio !== '' ? $fechaInicio : '1900-01-01';
+    $fechaFinal = $fechaFinal !== '' ? $fechaFinal : date('Y-m-d');
+
+    $inicioPeriodo = $fechaInicio . ' 00:00:00';
+    $finPeriodo = $fechaFinal . ' 23:59:59';
+
+    $existenciaActual = $this->obtenerExistenciaActualParaKardex(
+        $productoId,
+        $almacenId
+    );
+
+    // Todo lo que ocurrió después del cierre consultado ya está reflejado en la
+    // existencia actual. Se revierte para conocer el saldo real a esa fecha.
+    $netoPosterior = $this->obtenerNetoKardexPosterior(
+        $productoId,
+        $almacenId,
+        $finPeriodo
+    );
+
+    $inventarioFinalCorte = $existenciaActual - $netoPosterior;
+
     $params = [
-        ':producto_id' => $productoId
+        ':producto_id' => $productoId,
+        ':fecha_inicio' => $inicioPeriodo,
+        ':fecha_final' => $finPeriodo,
     ];
 
     $sql = "SELECT
@@ -2641,8 +2713,12 @@ public function generarKardex(
                 m.observaciones,
                 a.nombre AS almacen_nombre,
                 u.nombre AS usuario_nombre,
-                md.cantidad,
-                md.ubicacion
+                SUM(md.cantidad) AS cantidad,
+                GROUP_CONCAT(
+                    DISTINCT NULLIF(TRIM(md.ubicacion), '')
+                    ORDER BY md.ubicacion
+                    SEPARATOR ', '
+                ) AS ubicaciones
             FROM movimientos m
             INNER JOIN movimiento_detalle md
                 ON m.id = md.movimiento_id
@@ -2651,50 +2727,79 @@ public function generarKardex(
             INNER JOIN usuarios u
                 ON m.usuario_id = u.id
             WHERE md.producto_id = :producto_id
-            AND COALESCE(m.cancelado, 0) = 0";
+              AND COALESCE(m.cancelado, 0) = 0
+              AND m.fecha >= :fecha_inicio
+              AND m.fecha <= :fecha_final";
 
     if ($almacenId > 0) {
         $sql .= " AND m.almacen_id = :almacen_id";
         $params[':almacen_id'] = $almacenId;
     }
 
-    if ($fechaInicio !== '') {
-        $sql .= " AND m.fecha >= :fecha_inicio";
-        $params[':fecha_inicio'] = $fechaInicio . ' 00:00:00';
-    }
-
-    if ($fechaFinal !== '') {
-        $sql .= " AND m.fecha <= :fecha_final";
-        $params[':fecha_final'] = $fechaFinal . ' 23:59:59';
-    }
-
-    $sql .= " ORDER BY m.fecha ASC, m.id ASC, md.id ASC";
+    $sql .= " GROUP BY
+                m.id,
+                m.fecha,
+                m.folio,
+                m.tipo_movimiento,
+                m.referencia,
+                m.tipo_operacion,
+                m.observaciones,
+                a.nombre,
+                u.nombre
+              ORDER BY m.fecha ASC, m.id ASC";
 
     $stmt = $this->conn->prepare($sql);
     $stmt->execute($params);
-
     $movimientos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $kardex = [];
-    $saldo = 0;
+    $netoPeriodo = 0;
+    $totalEntradas = 0;
+    $totalSalidas = 0;
 
     foreach ($movimientos as $mov) {
-        $cantidad = (int)$mov['cantidad'];
+        $cantidad = max(0, (int)($mov['cantidad'] ?? 0));
         $tipo = strtoupper(trim($mov['tipo_movimiento'] ?? ''));
 
+        if ($tipo === 'ENTRADA') {
+            $netoPeriodo += $cantidad;
+            $totalEntradas += $cantidad;
+        } elseif ($tipo === 'SALIDA') {
+            $netoPeriodo -= $cantidad;
+            $totalSalidas += $cantidad;
+        }
+    }
+
+    // Saldo previo al primer movimiento del rango.
+    $inventarioInicialPeriodo = $inventarioFinalCorte - $netoPeriodo;
+    $saldo = $inventarioInicialPeriodo;
+    $kardex = [];
+
+    foreach ($movimientos as $mov) {
+        $cantidad = max(0, (int)($mov['cantidad'] ?? 0));
+        $tipo = strtoupper(trim($mov['tipo_movimiento'] ?? ''));
         $inventarioInicial = $saldo;
+        $efecto = '';
+        $cantidadConSigno = 0;
 
         if ($tipo === 'ENTRADA') {
-            $saldo += $cantidad;
+            $cantidadConSigno = $cantidad;
             $efecto = '+';
         } elseif ($tipo === 'SALIDA') {
-            $saldo -= $cantidad;
-            if ($saldo < 0) {
-                $saldo = 0;
-            }
+            $cantidadConSigno = -$cantidad;
             $efecto = '-';
-        } else {
-            $efecto = '';
+        }
+
+        // No se fuerza el saldo a 0: ocultar un negativo rompe la trazabilidad.
+        // Si existiera una inconsistencia, debe quedar visible para poder auditarla.
+        $saldo += $cantidadConSigno;
+
+        $ubicaciones = trim((string)($mov['ubicaciones'] ?? ''));
+        $notasPartes = [];
+        if (trim((string)($mov['observaciones'] ?? '')) !== '') {
+            $notasPartes[] = trim((string)$mov['observaciones']);
+        }
+        if ($ubicaciones !== '') {
+            $notasPartes[] = 'Ubicación: ' . $ubicaciones;
         }
 
         $kardex[] = [
@@ -2707,11 +2812,103 @@ public function generarKardex(
             'cantidad' => $cantidad,
             'inventario_final' => $saldo,
             'efecto' => $efecto,
-            'notas' => trim(($mov['observaciones'] ?? '') . ' ' . ($mov['ubicacion'] ?? '')),
+            'notas' => implode(' | ', $notasPartes),
             'usuario' => $mov['usuario_nombre'] ?? ''
         ];
     }
 
-    return $kardex;
+    $hoy = date('Y-m-d');
+    $conciliadoActual = $fechaFinal >= $hoy;
+    $diferenciaVsActual = $inventarioFinalCorte - $existenciaActual;
+
+    return [
+        'movimientos' => $kardex,
+        'resumen' => [
+            'existencia_actual' => $existenciaActual,
+            'inventario_inicial' => $inventarioInicialPeriodo,
+            'total_entradas' => $totalEntradas,
+            'total_salidas' => $totalSalidas,
+            'inventario_final' => $inventarioFinalCorte,
+            'neto_periodo' => $netoPeriodo,
+            'neto_posterior' => $netoPosterior,
+            'diferencia_vs_actual' => $diferenciaVsActual,
+            'fecha_inicio' => $fechaInicio,
+            'fecha_final' => $fechaFinal,
+            'conciliado_actual' => $conciliadoActual,
+        ],
+    ];
+}
+
+/**
+ * Existencia real actual del producto para el alcance solicitado.
+ * producto_existencias es la fuente de verdad del stock disponible del sistema.
+ */
+private function obtenerExistenciaActualParaKardex(
+    int $productoId,
+    int $almacenId = 0
+): int {
+    $params = [
+        ':producto_id' => $productoId,
+    ];
+
+    $sql = "SELECT COALESCE(SUM(COALESCE(pe.existencia, 0)), 0)
+            FROM producto_existencias pe
+            WHERE pe.producto_id = :producto_id";
+
+    if ($almacenId > 0) {
+        $sucursal = $this->obtenerSucursalPorAlmacenId($almacenId);
+
+        if ($sucursal === '') {
+            return 0;
+        }
+
+        $sql .= " AND UPPER(TRIM(COALESCE(pe.sucursal, '')))
+                       COLLATE utf8mb4_general_ci = UPPER(:sucursal)";
+        $params[':sucursal'] = $sucursal;
+    }
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute($params);
+
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Efecto neto de movimientos posteriores al cierre consultado.
+ * Entrada suma, salida resta.
+ */
+private function obtenerNetoKardexPosterior(
+    int $productoId,
+    int $almacenId,
+    string $finPeriodo
+): int {
+    $params = [
+        ':producto_id' => $productoId,
+        ':fin_periodo' => $finPeriodo,
+    ];
+
+    $sql = "SELECT COALESCE(SUM(
+                CASE
+                    WHEN m.tipo_movimiento = 'ENTRADA' THEN md.cantidad
+                    WHEN m.tipo_movimiento = 'SALIDA' THEN -md.cantidad
+                    ELSE 0
+                END
+            ), 0)
+            FROM movimientos m
+            INNER JOIN movimiento_detalle md
+                ON m.id = md.movimiento_id
+            WHERE md.producto_id = :producto_id
+              AND COALESCE(m.cancelado, 0) = 0
+              AND m.fecha > :fin_periodo";
+
+    if ($almacenId > 0) {
+        $sql .= " AND m.almacen_id = :almacen_id";
+        $params[':almacen_id'] = $almacenId;
+    }
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute($params);
+
+    return (int)$stmt->fetchColumn();
 }
 }

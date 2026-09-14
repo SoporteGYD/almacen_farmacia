@@ -27,6 +27,16 @@ $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
 $fechaFinal = $_GET['fecha_final'] ?? date('Y-m-d');
 
 $kardex = [];
+$resumenKardex = [
+    'existencia_actual' => 0,
+    'inventario_inicial' => 0,
+    'total_entradas' => 0,
+    'total_salidas' => 0,
+    'inventario_final' => 0,
+    'diferencia_vs_actual' => 0,
+    'conciliado_actual' => false,
+];
+$errorKardex = '';
 $productoSeleccionado = null;
 $almacenSeleccionado = 'TODOS';
 
@@ -48,8 +58,21 @@ if ($rol !== 'ADMINISTRADOR' && $almacenId <= 0) {
     $almacenSeleccionado = 'SIN ALMACÉN ASIGNADO';
 }
 
-if ($productoId > 0 && ($rol === 'ADMINISTRADOR' || $almacenId > 0)) {
-    $kardex = $model->generarKardex($productoId, $almacenId, $fechaInicio, $fechaFinal);
+if ($fechaInicio > $fechaFinal) {
+    $errorKardex = 'La fecha inicial no puede ser mayor que la fecha final.';
+} elseif ($productoId > 0 && ($rol === 'ADMINISTRADOR' || $almacenId > 0)) {
+    $resultadoKardex = $model->generarKardexDetallado(
+        $productoId,
+        $almacenId,
+        $fechaInicio,
+        $fechaFinal
+    );
+
+    $kardex = $resultadoKardex['movimientos'] ?? [];
+    $resumenKardex = array_merge(
+        $resumenKardex,
+        $resultadoKardex['resumen'] ?? []
+    );
 }
 
 $productosJson = [];
@@ -85,6 +108,75 @@ include __DIR__ . '/../app/views/layouts/header.php';
     margin-bottom: 18px;
     box-shadow: 0 8px 18px rgba(0,0,0,.06);
     border: 1px solid #e5e7eb;
+}
+
+.kardex-summary {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.kardex-summary-card {
+    background: #fff;
+    border: 1px solid #dbe4ef;
+    border-radius: 12px;
+    padding: 13px 14px;
+    min-width: 0;
+}
+
+.kardex-summary-label {
+    display: block;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.kardex-summary-value {
+    color: #0f172a;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.kardex-summary-card.actual,
+.kardex-summary-card.final {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.kardex-summary-card.entrada .kardex-summary-value { color: #047857; }
+.kardex-summary-card.salida .kardex-summary-value { color: #b91c1c; }
+
+.kardex-conciliacion {
+    margin: -8px 0 16px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.kardex-error {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-weight: 700;
+}
+
+@media (max-width: 1050px) {
+    .kardex-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+    .kardex-summary { grid-template-columns: 1fr; }
 }
 
 .kardex-filtros {
@@ -308,6 +400,34 @@ include __DIR__ . '/../app/views/layouts/header.php';
         font-size: 10px !important;
     }
 
+    .kardex-summary {
+        display: grid !important;
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: 4px !important;
+        margin: 5px 0 6px !important;
+    }
+
+    .kardex-summary-card {
+        padding: 5px !important;
+        border: 1px solid #777 !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+    }
+
+    .kardex-summary-label {
+        font-size: 7px !important;
+        margin-bottom: 2px !important;
+    }
+
+    .kardex-summary-value {
+        font-size: 11px !important;
+        color: #000 !important;
+    }
+
+    .kardex-conciliacion {
+        display: none !important;
+    }
+
     .kardex-card {
         box-shadow: none !important;
         border: none !important;
@@ -455,7 +575,42 @@ include __DIR__ . '/../app/views/layouts/header.php';
     </form>
 </div>
 
+<?php if ($errorKardex !== ''): ?>
+    <div class="kardex-error no-print"><?= e($errorKardex) ?></div>
+<?php endif; ?>
+
 <div class="print-area">
+
+    <?php if ($productoSeleccionado && $errorKardex === ''): ?>
+        <div class="kardex-summary">
+            <div class="kardex-summary-card actual">
+                <span class="kardex-summary-label">Existencia actual sistema</span>
+                <span class="kardex-summary-value"><?= number_format((int)$resumenKardex['existencia_actual']) ?></span>
+            </div>
+            <div class="kardex-summary-card">
+                <span class="kardex-summary-label">Inv. inicial período</span>
+                <span class="kardex-summary-value"><?= number_format((int)$resumenKardex['inventario_inicial']) ?></span>
+            </div>
+            <div class="kardex-summary-card entrada">
+                <span class="kardex-summary-label">Entradas</span>
+                <span class="kardex-summary-value">+<?= number_format((int)$resumenKardex['total_entradas']) ?></span>
+            </div>
+            <div class="kardex-summary-card salida">
+                <span class="kardex-summary-label">Salidas</span>
+                <span class="kardex-summary-value">-<?= number_format((int)$resumenKardex['total_salidas']) ?></span>
+            </div>
+            <div class="kardex-summary-card final">
+                <span class="kardex-summary-label">Inv. final al corte</span>
+                <span class="kardex-summary-value"><?= number_format((int)$resumenKardex['inventario_final']) ?></span>
+            </div>
+        </div>
+
+        <?php if (!empty($resumenKardex['conciliado_actual'])): ?>
+            <div class="kardex-conciliacion no-print">
+                ✓ Kardex conciliado: el Inv. Final corresponde a la existencia actual del sistema para el almacén seleccionado.
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
 
     <div class="print-header">
         <div class="print-left">

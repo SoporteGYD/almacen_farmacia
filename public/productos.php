@@ -638,7 +638,7 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
                 </div>
 
                 <div class="form-group">
-                    <label>Último costo</label>
+                    <label>Costo último</label>
                     <input
                         type="number"
                         step="0.01"
@@ -779,7 +779,7 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
                         <th>Proveedor</th>
                         <th>Marca</th>
                         <th>Unidad</th>
-                        <th>Último costo</th>
+                        <th>Costo último</th>
                         <th>Costo promedio</th>
                         <?php if ($esAdmin): ?>
                             <th>Cd. Hidalgo</th>

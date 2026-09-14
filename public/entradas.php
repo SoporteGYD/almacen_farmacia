@@ -1333,7 +1333,7 @@ body {
             </div>
 
             <div class="capture-field">
-                <label>💰 Costo de entrada (nuevo último costo)</label>
+                <label>💰 Costo de entrada (nuevo costo último)</label>
                 <input type="number" id="precioInput" step="0.01" value="0.00">
             </div>
 
@@ -1375,7 +1375,7 @@ body {
             <div class="selected-info">
                 <div class="row"><span class="label">📦 Producto:</span><span class="value" id="infoCodigo">-</span></div>
                 <div class="row"><span class="label">📝 Descripción:</span><span class="value" id="infoDescripcion">-</span></div>
-                <div class="row"><span class="label">💵 Último costo actual:</span><span class="value" id="infoCostoUltimo">-</span></div>
+                <div class="row"><span class="label">💵 Costo último actual:</span><span class="value" id="infoCostoUltimo">-</span></div>
                 <div class="row"><span class="label">📊 Costo promedio actual:</span><span class="value" id="infoCostoPromedio">-</span></div>
                 <div class="row"><span class="label">📦 Existencia total:</span><span class="value" id="infoExistenciaTotal">-</span></div>
                 <div class="row"><span class="label">📍 Ubicación sugerida:</span><span class="value" id="infoUbicacion">-</span></div>
@@ -1405,7 +1405,7 @@ body {
                         <th>Cantidad</th>
                         <th>Código</th>
                         <th>Descripción</th>
-                        <th>Último costo</th>
+                        <th>Costo último</th>
                         <th>Costo promedio</th>
                         <th>Lote</th>
                         <th>Ubicación</th>
@@ -1501,7 +1501,7 @@ body {
                     <tr>
                         <th>Código</th>
                         <th>Descripción</th>
-                        <th>Último Costo</th>
+                        <th>Costo último</th>
                         <th>Costo promedio</th>
                         <th>Ubicación sugerida</th>
                         <th>Ubicaciones disponibles</th>

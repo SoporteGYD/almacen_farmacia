@@ -523,7 +523,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
                     <h4>Costos</h4>
                     <div class="costos-resumen-grid">
                         <div class="costo-resumen-card">
-                            <span>Último costo</span>
+                            <span>Costo último</span>
                             <strong id="modalCostoUltimo">$0.00</strong>
                             <small>Último costo capturado en una entrada.</small>
                         </div>
