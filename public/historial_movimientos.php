@@ -11,18 +11,20 @@ requireLogin();
 $controller = new AuditoriaController();
 $controller->verificarAdministrador();
 
+$vista = strtolower(trim((string) ($_GET['vista'] ?? 'inventario')));
+if (!in_array($vista, ['inventario', 'auditoria'], true)) {
+    $vista = 'inventario';
+}
+
 $filters = [
     'buscar' => trim((string) ($_GET['buscar'] ?? '')),
     'usuario_id' => (int) ($_GET['usuario_id'] ?? 0),
     'almacen_id' => (int) ($_GET['almacen_id'] ?? 0),
+    'tipo_movimiento' => trim((string) ($_GET['tipo_movimiento'] ?? '')),
     'modulo' => trim((string) ($_GET['modulo'] ?? '')),
     'accion' => trim((string) ($_GET['accion'] ?? '')),
-    'fecha_inicio' => trim(
-        (string) ($_GET['fecha_inicio'] ?? '')
-    ),
-    'fecha_final' => trim(
-        (string) ($_GET['fecha_final'] ?? '')
-    ),
+    'fecha_inicio' => trim((string) ($_GET['fecha_inicio'] ?? '')),
+    'fecha_final' => trim((string) ($_GET['fecha_final'] ?? '')),
 ];
 
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -40,20 +42,20 @@ $options = [
     'modulos' => [],
     'acciones' => [],
 ];
+$inventoryTypes = [];
 
 try {
-    if (!$controller->estaInstalado()) {
+    if (!$controller->estaInstalado() && $vista === 'auditoria') {
         $error = 'La tabla de auditoría todavía no está instalada. Ejecute database/instalar_auditoria.sql en phpMyAdmin.';
     } else {
-        $result = $controller->consultar($filters, $page);
         $options = $controller->opciones();
+        $inventoryTypes = $controller->tiposInventario();
+        $result = $vista === 'inventario'
+            ? $controller->consultarInventario($filters, $page)
+            : $controller->consultar($filters, $page);
     }
 } catch (Throwable $e) {
-    error_log(
-        'Error al consultar la auditoría: '
-        . $e->getMessage()
-    );
-
+    error_log('Error al consultar historial de movimientos: ' . $e->getMessage());
     $error = 'No fue posible consultar el historial de movimientos.';
 }
 
@@ -62,73 +64,46 @@ function auditDecodeForView(?string $json): array
     if ($json === null || trim($json) === '') {
         return [];
     }
-
     $decoded = json_decode($json, true);
-
     return is_array($decoded) ? $decoded : [];
 }
 
 function auditValueForView(mixed $value): string
 {
-    if ($value === null) {
-        return 'Vacío';
-    }
-
-    if (is_bool($value)) {
-        return $value ? 'Sí' : 'No';
-    }
-
+    if ($value === null) return 'Vacío';
+    if (is_bool($value)) return $value ? 'Sí' : 'No';
     if (is_array($value)) {
-        $json = json_encode(
-            $value,
-            JSON_UNESCAPED_UNICODE
-            | JSON_UNESCAPED_SLASHES
-            | JSON_PRETTY_PRINT
-        );
-
+        $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         return $json === false ? '' : $json;
     }
-
     $text = trim((string) $value);
-
     return $text === '' ? 'Vacío' : $text;
 }
 
 function auditFieldLabel(string $field): string
 {
-    return ucfirst(
-        str_replace('_', ' ', $field)
-    );
+    return ucfirst(str_replace('_', ' ', $field));
 }
 
 function auditActionClass(string $action): string
 {
-    if (
-        str_contains($action, 'ELIMIN')
-        || str_contains($action, 'CANCEL')
-        || str_contains($action, 'FALLIDO')
-        || str_contains($action, 'DENEGADO')
-    ) {
-        return 'audit-badge-danger';
-    }
-
-    if (
-        str_contains($action, 'CRE')
-        || str_contains($action, 'GUARD')
-        || str_contains($action, 'INICIO_SESION')
-    ) {
-        return 'audit-badge-success';
-    }
-
-    if (
-        str_contains($action, 'ACTUAL')
-        || str_contains($action, 'EDIT')
-        || str_contains($action, 'CAMBIO')
-    ) {
-        return 'audit-badge-warning';
-    }
-
+    if (str_contains($action, 'ELIMIN') || str_contains($action, 'CANCEL') || str_contains($action, 'FALLIDO') || str_contains($action, 'DENEGADO')) return 'audit-badge-danger';
+    if (str_contains($action, 'CRE') || str_contains($action, 'GUARD') || str_contains($action, 'INICIO_SESION') || $action === 'ENTRADA') return 'audit-badge-success';
+    if (str_contains($action, 'ACTUAL') || str_contains($action, 'EDIT') || str_contains($action, 'CAMBIO') || $action === 'AJUSTE') return 'audit-badge-warning';
     return 'audit-badge-info';
+}
+
+function movementTypeLabel(string $type): string
+{
+    return match (strtoupper($type)) {
+        'ENTRADA' => 'Entrada',
+        'SALIDA' => 'Salida',
+        'AJUSTE' => 'Ajuste',
+        'TRASPASO' => 'Traspaso',
+        'MERMA' => 'Merma',
+        'DEVOLUCION' => 'Devolución',
+        default => ucfirst(strtolower($type)),
+    };
 }
 
 $queryWithoutPage = $_GET;
@@ -141,39 +116,44 @@ include __DIR__ . '/../app/views/layouts/header.php';
 <section class="audit-page">
     <div class="audit-heading">
         <div>
-            <h2>Historial detallado de movimientos</h2>
+            <h2>Historial de movimientos</h2>
             <p>
-                Auditoría exclusiva del administrador:
-                accesos, búsquedas y cambios realizados en el sistema.
+                <?= $vista === 'inventario'
+                    ? 'Movimientos reales registrados en inventario: entradas, salidas y demás operaciones.'
+                    : 'Bitácora técnica del sistema: accesos, búsquedas, cambios, cancelaciones y acciones de usuarios.' ?>
             </p>
         </div>
-
         <div class="audit-total">
             <strong><?= number_format((int) $result['total']) ?></strong>
-            <span>movimientos encontrados</span>
+            <span><?= $vista === 'inventario' ? 'movimientos reales' : 'eventos de auditoría' ?></span>
         </div>
     </div>
 
-    <?php if ($error !== ''): ?>
-        <div class="audit-alert audit-alert-error">
-            <?= e($error) ?>
+    <div class="audit-view-tabs" role="navigation" aria-label="Tipo de historial">
+        <a href="historial_movimientos.php?vista=inventario" class="<?= $vista === 'inventario' ? 'active' : '' ?>">
+            📦 Movimientos de inventario
+        </a>
+        <a href="historial_movimientos.php?vista=auditoria" class="<?= $vista === 'auditoria' ? 'active' : '' ?>">
+            🧾 Bitácora del sistema
+        </a>
+    </div>
+
+    <?php if ($vista === 'inventario'): ?>
+        <div class="audit-alert audit-alert-info">
+            Esta vista lee directamente la tabla <strong>movimientos</strong>. Por eso incluye movimientos históricos aunque no tengan un evento equivalente en la auditoría.
         </div>
     <?php endif; ?>
 
-    <form
-        method="GET"
-        action="historial_movimientos.php"
-        class="audit-filters"
-    >
+    <?php if ($error !== ''): ?>
+        <div class="audit-alert audit-alert-error"><?= e($error) ?></div>
+    <?php endif; ?>
+
+    <form method="GET" action="historial_movimientos.php" class="audit-filters">
+        <input type="hidden" name="vista" value="<?= e($vista) ?>">
         <div class="audit-field audit-field-wide">
             <label for="buscar">Buscar</label>
-            <input
-                type="search"
-                id="buscar"
-                name="buscar"
-                value="<?= e($filters['buscar']) ?>"
-                placeholder="Usuario, descripción, producto, folio o ID"
-            >
+            <input type="search" id="buscar" name="buscar" value="<?= e($filters['buscar']) ?>"
+                   placeholder="<?= $vista === 'inventario' ? 'Folio, producto, código, referencia, usuario...' : 'Usuario, descripción, producto, folio o ID' ?>">
         </div>
 
         <div class="audit-field">
@@ -181,12 +161,8 @@ include __DIR__ . '/../app/views/layouts/header.php';
             <select id="usuario_id" name="usuario_id">
                 <option value="0">Todos</option>
                 <?php foreach ($options['usuarios'] as $option): ?>
-                    <option
-                        value="<?= (int) $option['id'] ?>"
-                        <?= (int) $filters['usuario_id'] === (int) $option['id'] ? 'selected' : '' ?>
-                    >
-                        <?= e($option['nombre']) ?>
-                        (<?= e($option['usuario']) ?>)
+                    <option value="<?= (int) $option['id'] ?>" <?= (int) $filters['usuario_id'] === (int) $option['id'] ? 'selected' : '' ?>>
+                        <?= e($option['nombre']) ?> (<?= e($option['usuario']) ?>)
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -197,303 +173,197 @@ include __DIR__ . '/../app/views/layouts/header.php';
             <select id="almacen_id" name="almacen_id">
                 <option value="0">Todos</option>
                 <?php foreach ($options['almacenes'] as $option): ?>
-                    <option
-                        value="<?= (int) $option['id'] ?>"
-                        <?= (int) $filters['almacen_id'] === (int) $option['id'] ? 'selected' : '' ?>
-                    >
+                    <option value="<?= (int) $option['id'] ?>" <?= (int) $filters['almacen_id'] === (int) $option['id'] ? 'selected' : '' ?>>
                         <?= e($option['nombre']) ?>
                     </option>
                 <?php endforeach; ?>
             </select>
         </div>
 
-        <div class="audit-field">
-            <label for="modulo">Módulo</label>
-            <select id="modulo" name="modulo">
-                <option value="">Todos</option>
-                <?php foreach ($options['modulos'] as $option): ?>
-                    <option
-                        value="<?= e((string) $option) ?>"
-                        <?= $filters['modulo'] === $option ? 'selected' : '' ?>
-                    >
-                        <?= e((string) $option) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-
-        <div class="audit-field">
-            <label for="accion">Acción</label>
-            <select id="accion" name="accion">
-                <option value="">Todas</option>
-                <?php foreach ($options['acciones'] as $option): ?>
-                    <option
-                        value="<?= e((string) $option) ?>"
-                        <?= $filters['accion'] === $option ? 'selected' : '' ?>
-                    >
-                        <?= e(
-                            str_replace('_', ' ', (string) $option)
-                        ) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
+        <?php if ($vista === 'inventario'): ?>
+            <div class="audit-field">
+                <label for="tipo_movimiento">Tipo de movimiento</label>
+                <select id="tipo_movimiento" name="tipo_movimiento">
+                    <option value="">Todos</option>
+                    <?php foreach ($inventoryTypes as $type): ?>
+                        <option value="<?= e((string) $type) ?>" <?= $filters['tipo_movimiento'] === $type ? 'selected' : '' ?>>
+                            <?= e(movementTypeLabel((string) $type)) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php else: ?>
+            <div class="audit-field">
+                <label for="modulo">Módulo</label>
+                <select id="modulo" name="modulo">
+                    <option value="">Todos</option>
+                    <?php foreach ($options['modulos'] as $option): ?>
+                        <option value="<?= e((string) $option) ?>" <?= $filters['modulo'] === $option ? 'selected' : '' ?>><?= e((string) $option) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="audit-field">
+                <label for="accion">Acción</label>
+                <select id="accion" name="accion">
+                    <option value="">Todas</option>
+                    <?php foreach ($options['acciones'] as $option): ?>
+                        <option value="<?= e((string) $option) ?>" <?= $filters['accion'] === $option ? 'selected' : '' ?>><?= e(str_replace('_', ' ', (string) $option)) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php endif; ?>
 
         <div class="audit-field">
             <label for="fecha_inicio">Desde</label>
-            <input
-                type="date"
-                id="fecha_inicio"
-                name="fecha_inicio"
-                value="<?= e($filters['fecha_inicio']) ?>"
-            >
+            <input type="date" id="fecha_inicio" name="fecha_inicio" value="<?= e($filters['fecha_inicio']) ?>">
         </div>
-
         <div class="audit-field">
             <label for="fecha_final">Hasta</label>
-            <input
-                type="date"
-                id="fecha_final"
-                name="fecha_final"
-                value="<?= e($filters['fecha_final']) ?>"
-            >
+            <input type="date" id="fecha_final" name="fecha_final" value="<?= e($filters['fecha_final']) ?>">
         </div>
-
         <div class="audit-filter-actions">
-            <button type="submit" class="audit-btn audit-btn-primary">
-                Filtrar
-            </button>
-            <a
-                href="historial_movimientos.php"
-                class="audit-btn audit-btn-secondary"
-            >
-                Limpiar
-            </a>
+            <button type="submit" class="audit-btn audit-btn-primary">Filtrar</button>
+            <a href="historial_movimientos.php?vista=<?= e($vista) ?>" class="audit-btn audit-btn-secondary">Limpiar</a>
         </div>
     </form>
 
     <div class="audit-table-card">
         <div class="audit-table-scroll">
-            <table class="audit-table">
-                <thead>
+            <?php if ($vista === 'inventario'): ?>
+                <table class="audit-table inventory-history-table">
+                    <thead>
                     <tr>
-                        <th>Fecha y hora</th>
+                        <th>Fecha</th>
+                        <th>Folio</th>
+                        <th>Tipo</th>
+                        <th>Almacén</th>
+                        <th>Productos / Cantidad</th>
                         <th>Usuario</th>
-                        <th>Módulo</th>
-                        <th>Acción</th>
-                        <th>Descripción</th>
-                        <th>Detalles</th>
+                        <th>Estado</th>
+                        <th>Detalle</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     <?php if ($result['registros'] === []): ?>
-                        <tr>
-                            <td colspan="6" class="audit-empty">
-                                No hay movimientos que coincidan con los filtros.
-                            </td>
-                        </tr>
+                        <tr><td colspan="8" class="audit-empty">No hay movimientos que coincidan con los filtros.</td></tr>
                     <?php endif; ?>
-
                     <?php foreach ($result['registros'] as $row): ?>
-                        <?php
-                        $before = auditDecodeForView(
-                            $row['datos_anteriores']
-                        );
-                        $after = auditDecodeForView(
-                            $row['datos_nuevos']
-                        );
-                        $metadata = auditDecodeForView(
-                            $row['metadata']
-                        );
-                        $fields = array_unique(array_merge(
-                            array_keys($before),
-                            array_keys($after)
-                        ));
-                        ?>
                         <tr>
                             <td class="audit-date">
-                                <?= e(
-                                    date(
-                                        'd/m/Y H:i:s',
-                                        strtotime($row['creado_en'])
-                                    )
-                                ) ?>
-                            </td>
-                            <td>
-                                <strong>
-                                    <?= e(
-                                        $row['usuario_nombre']
-                                        ?: 'Usuario no identificado'
-                                    ) ?>
-                                </strong>
-                                <small>
-                                    <?= e($row['usuario_login'] ?? '') ?>
-                                    <?php if (!empty($row['usuario_rol'])): ?>
-                                        · <?= e($row['usuario_rol']) ?>
-                                    <?php endif; ?>
-                                </small>
-                                <?php if (!empty($row['almacen_nombre'])): ?>
-                                    <small>
-                                        <?= e($row['almacen_nombre']) ?>
-                                    </small>
+                                <strong><?= e(date('d/m/Y H:i', strtotime((string) $row['fecha']))) ?></strong>
+                                <?php if (!empty($row['created_at'])): ?>
+                                    <small>Registrado: <?= e(date('d/m/Y H:i:s', strtotime((string) $row['created_at']))) ?></small>
                                 <?php endif; ?>
                             </td>
-                            <td><?= e($row['modulo']) ?></td>
+                            <td><strong><?= e((string) $row['folio']) ?></strong><small>#<?= (int) $row['id'] ?></small></td>
+                            <td><span class="audit-badge <?= e(auditActionClass((string) $row['tipo_movimiento'])) ?>"><?= e(movementTypeLabel((string) $row['tipo_movimiento'])) ?></span></td>
+                            <td><?= e((string) ($row['almacen_nombre'] ?: 'Sin almacén')) ?></td>
+                            <td><strong><?= number_format((int) $row['total_productos']) ?> producto(s)</strong><small><?= number_format((int) $row['total_cantidad']) ?> pieza(s) registradas</small></td>
+                            <td><strong><?= e((string) ($row['usuario_nombre'] ?: 'Usuario no identificado')) ?></strong><small><?= e((string) ($row['usuario_login'] ?? '')) ?><?= !empty($row['usuario_rol']) ? ' · ' . e((string) $row['usuario_rol']) : '' ?></small></td>
                             <td>
-                                <span class="audit-badge <?= e(
-                                    auditActionClass($row['accion'])
-                                ) ?>">
-                                    <?= e(
-                                        str_replace(
-                                            '_',
-                                            ' ',
-                                            $row['accion']
-                                        )
-                                    ) ?>
-                                </span>
+                                <?php if ((int) $row['cancelado'] === 1): ?>
+                                    <span class="audit-badge audit-badge-danger">CANCELADO</span>
+                                <?php else: ?>
+                                    <span class="audit-badge audit-badge-success">APLICADO</span>
+                                <?php endif; ?>
                             </td>
                             <td>
-                                <?= e($row['descripcion']) ?>
-                                <?php if (!empty($row['entidad'])): ?>
-                                    <small>
-                                        <?= e($row['entidad']) ?>
-                                        <?php if (!empty($row['registro_id'])): ?>
-                                            #<?= e($row['registro_id']) ?>
+                                <details class="audit-details inventory-details">
+                                    <summary>Ver movimiento</summary>
+                                    <div class="movement-summary-grid">
+                                        <div><span>Referencia</span><strong><?= e((string) ($row['referencia'] ?: 'Sin referencia')) ?></strong></div>
+                                        <div><span>Operación</span><strong><?= e((string) ($row['tipo_operacion'] ?: 'No especificada')) ?></strong></div>
+                                        <div class="movement-summary-wide"><span>Observaciones</span><strong><?= nl2br(e((string) ($row['observaciones'] ?: 'Sin observaciones'))) ?></strong></div>
+                                        <?php if ((int) $row['cancelado'] === 1): ?>
+                                            <div><span>Fecha cancelación</span><strong><?= e((string) ($row['fecha_cancelacion'] ?: 'No registrada')) ?></strong></div>
+                                            <div><span>Motivo</span><strong><?= e((string) ($row['motivo_cancelacion'] ?: 'Sin motivo')) ?></strong></div>
                                         <?php endif; ?>
-                                    </small>
-                                <?php endif; ?>
+                                    </div>
+                                    <div class="audit-change-title">Productos del movimiento</div>
+                                    <div class="audit-changes-scroll">
+                                        <table class="audit-changes movement-products">
+                                            <thead><tr><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Ubicación</th><th>Costo</th></tr></thead>
+                                            <tbody>
+                                            <?php foreach (($row['detalles'] ?? []) as $detail): ?>
+                                                <tr>
+                                                    <td><?= e((string) ($detail['codigo_barras'] ?: $detail['codigo'])) ?></td>
+                                                    <td><?= e((string) $detail['descripcion']) ?></td>
+                                                    <td><?= number_format((int) $detail['cantidad']) ?></td>
+                                                    <td><?= e((string) ($detail['ubicacion'] ?: 'Sin ubicación')) ?></td>
+                                                    <td>$<?= number_format((float) $detail['costo_unitario'], 2) ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                            <?php if (($row['detalles'] ?? []) === []): ?>
+                                                <tr><td colspan="5">Sin detalle de productos.</td></tr>
+                                            <?php endif; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
                             </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <table class="audit-table">
+                    <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Módulo</th><th>Acción</th><th>Descripción</th><th>Detalles</th></tr></thead>
+                    <tbody>
+                    <?php if ($result['registros'] === []): ?>
+                        <tr><td colspan="6" class="audit-empty">No hay eventos que coincidan con los filtros.</td></tr>
+                    <?php endif; ?>
+                    <?php foreach ($result['registros'] as $row): ?>
+                        <?php
+                        $before = auditDecodeForView($row['datos_anteriores']);
+                        $after = auditDecodeForView($row['datos_nuevos']);
+                        $metadata = auditDecodeForView($row['metadata']);
+                        $fields = array_unique(array_merge(array_keys($before), array_keys($after)));
+                        ?>
+                        <tr>
+                            <td class="audit-date"><?= e(date('d/m/Y H:i:s', strtotime((string) $row['creado_en']))) ?></td>
+                            <td><strong><?= e((string) ($row['usuario_nombre'] ?: 'Usuario no identificado')) ?></strong><small><?= e((string) ($row['usuario_login'] ?? '')) ?><?= !empty($row['usuario_rol']) ? ' · ' . e((string) $row['usuario_rol']) : '' ?></small><?php if (!empty($row['almacen_nombre'])): ?><small><?= e((string) $row['almacen_nombre']) ?></small><?php endif; ?></td>
+                            <td><?= e((string) $row['modulo']) ?></td>
+                            <td><span class="audit-badge <?= e(auditActionClass((string) $row['accion'])) ?>"><?= e(str_replace('_', ' ', (string) $row['accion'])) ?></span></td>
+                            <td><?= e((string) $row['descripcion']) ?><?php if (!empty($row['entidad'])): ?><small><?= e((string) $row['entidad']) ?><?= !empty($row['registro_id']) ? ' #' . e((string) $row['registro_id']) : '' ?></small><?php endif; ?></td>
                             <td>
                                 <details class="audit-details">
                                     <summary>Ver detalle</summary>
-
                                     <?php if ($fields !== []): ?>
-                                        <div class="audit-change-title">
-                                            Comparación de cambios
-                                        </div>
-                                        <div class="audit-changes-scroll">
-                                            <table class="audit-changes">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Campo</th>
-                                                        <th>Antes</th>
-                                                        <th>Después</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($fields as $field): ?>
-                                                        <tr>
-                                                            <td>
-                                                                <?= e(
-                                                                    auditFieldLabel(
-                                                                        (string) $field
-                                                                    )
-                                                                ) ?>
-                                                            </td>
-                                                            <td>
-                                                                <pre><?= e(
-                                                                    auditValueForView(
-                                                                        $before[$field] ?? null
-                                                                    )
-                                                                ) ?></pre>
-                                                            </td>
-                                                            <td>
-                                                                <pre><?= e(
-                                                                    auditValueForView(
-                                                                        $after[$field] ?? null
-                                                                    )
-                                                                ) ?></pre>
-                                                            </td>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                        <div class="audit-change-title">Comparación de cambios</div>
+                                        <div class="audit-changes-scroll"><table class="audit-changes"><thead><tr><th>Campo</th><th>Antes</th><th>Después</th></tr></thead><tbody>
+                                        <?php foreach ($fields as $field): ?><tr><td><?= e(auditFieldLabel((string) $field)) ?></td><td><pre><?= e(auditValueForView($before[$field] ?? null)) ?></pre></td><td><pre><?= e(auditValueForView($after[$field] ?? null)) ?></pre></td></tr><?php endforeach; ?>
+                                        </tbody></table></div>
                                     <?php endif; ?>
-
-                                    <?php if ($metadata !== []): ?>
-                                        <div class="audit-change-title">
-                                            Información adicional
-                                        </div>
-                                        <pre class="audit-json"><?= e(
-                                            auditValueForView($metadata)
-                                        ) ?></pre>
-                                    <?php endif; ?>
-
+                                    <?php if ($metadata !== []): ?><div class="audit-change-title">Información adicional</div><pre class="audit-json"><?= e(auditValueForView($metadata)) ?></pre><?php endif; ?>
                                     <dl class="audit-technical">
-                                        <div>
-                                            <dt>IP</dt>
-                                            <dd><?= e(
-                                                $row['direccion_ip']
-                                                ?: 'No disponible'
-                                            ) ?></dd>
-                                        </div>
-                                        <div>
-                                            <dt>Método</dt>
-                                            <dd><?= e(
-                                                $row['metodo_http']
-                                                ?: 'No disponible'
-                                            ) ?></dd>
-                                        </div>
-                                        <div>
-                                            <dt>URL</dt>
-                                            <dd><?= e(
-                                                $row['url']
-                                                ?: 'No disponible'
-                                            ) ?></dd>
-                                        </div>
-                                        <div>
-                                            <dt>Navegador</dt>
-                                            <dd><?= e(
-                                                $row['user_agent']
-                                                ?: 'No disponible'
-                                            ) ?></dd>
-                                        </div>
+                                        <div><dt>IP</dt><dd><?= e((string) ($row['direccion_ip'] ?: 'No disponible')) ?></dd></div>
+                                        <div><dt>Método</dt><dd><?= e((string) ($row['metodo_http'] ?: 'No disponible')) ?></dd></div>
+                                        <div><dt>URL</dt><dd><?= e((string) ($row['url'] ?: 'No disponible')) ?></dd></div>
+                                        <div><dt>Navegador</dt><dd><?= e((string) ($row['user_agent'] ?: 'No disponible')) ?></dd></div>
                                     </dl>
                                 </details>
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </div>
     </div>
 
     <?php if ((int) $result['total_paginas'] > 1): ?>
         <nav class="audit-pagination" aria-label="Paginación">
             <?php
-            $pageNumbers = [
-                1,
-                (int) $result['total_paginas'],
-            ];
-
-            for (
-                $nearby = max(1, (int) $result['pagina'] - 2);
-                $nearby <= min(
-                    (int) $result['total_paginas'],
-                    (int) $result['pagina'] + 2
-                );
-                $nearby++
-            ) {
+            $pageNumbers = [1, (int) $result['total_paginas']];
+            for ($nearby = max(1, (int) $result['pagina'] - 2); $nearby <= min((int) $result['total_paginas'], (int) $result['pagina'] + 2); $nearby++) {
                 $pageNumbers[] = $nearby;
             }
-
-            $pageNumbers = array_values(
-                array_unique($pageNumbers)
-            );
+            $pageNumbers = array_values(array_unique($pageNumbers));
             sort($pageNumbers);
             ?>
             <?php foreach ($pageNumbers as $number): ?>
-                <?php
-                $pageQuery = $queryWithoutPage;
-                $pageQuery['page'] = $number;
-                ?>
-                <a
-                    href="?<?= e(http_build_query($pageQuery)) ?>"
-                    class="<?= $number === (int) $result['pagina'] ? 'active' : '' ?>"
-                >
-                    <?= $number ?>
-                </a>
+                <?php $pageQuery = $queryWithoutPage; $pageQuery['page'] = $number; ?>
+                <a href="?<?= e(http_build_query($pageQuery)) ?>" class="<?= $number === (int) $result['pagina'] ? 'active' : '' ?>"><?= $number ?></a>
             <?php endforeach; ?>
         </nav>
     <?php endif; ?>

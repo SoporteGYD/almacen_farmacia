@@ -49,6 +49,23 @@ class AuditoriaController
         );
     }
 
+    public function consultarInventario(
+        array $filters,
+        int $page,
+        int $perPage = 30
+    ): array {
+        return $this->model->inventoryPaginated(
+            $filters,
+            $page,
+            $perPage
+        );
+    }
+
+    public function tiposInventario(): array
+    {
+        return $this->model->inventoryTypes();
+    }
+
     public function opciones(): array
     {
         return $this->model->filterOptions();

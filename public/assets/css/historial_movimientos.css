@@ -347,3 +347,96 @@
         width: 78vw;
     }
 }
+
+.audit-view-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 12px;
+    background: #eaf0f6;
+}
+
+.audit-view-tabs a {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: #29445f;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.audit-view-tabs a.active {
+    background: #fff;
+    color: #155d9b;
+    box-shadow: 0 3px 10px rgba(31, 79, 131, 0.12);
+}
+
+.audit-alert-info {
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1e3a5f;
+}
+
+.inventory-history-table {
+    min-width: 1260px;
+}
+
+.inventory-details[open] {
+    width: min(900px, 78vw);
+}
+
+.movement-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.movement-summary-grid > div {
+    display: grid;
+    gap: 4px;
+    padding: 10px;
+    border: 1px solid #dbe5ef;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.movement-summary-grid span {
+    color: #6b7a8c;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.movement-summary-grid strong {
+    color: #1d2c3d;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.movement-summary-wide {
+    grid-column: 1 / -1;
+}
+
+.movement-products {
+    min-width: 760px;
+}
+
+@media (max-width: 650px) {
+    .audit-view-tabs {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .movement-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .movement-summary-wide {
+        grid-column: auto;
+    }
+}
