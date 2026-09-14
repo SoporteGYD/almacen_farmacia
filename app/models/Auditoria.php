@@ -36,122 +36,132 @@ class Auditoria
      */
     private function combinedAuditBaseSql(): string
     {
+        // IMPORTANTE:
+        // auditoria_movimientos usa utf8mb4_unicode_ci, mientras que varias
+        // tablas operativas usan utf8mb4_general_ci. Todos los textos que
+        // participan en el UNION se convierten explícitamente a unicode_ci
+        // para evitar "Illegal mix of collations" en MySQL.
         return "
             SELECT
-                CONCAT('A-', am.id) AS fila_clave,
+                (CONCAT('A-', am.id) COLLATE utf8mb4_unicode_ci) AS fila_clave,
                 am.id,
                 am.usuario_id,
-                am.usuario_nombre,
-                am.usuario_login,
-                am.usuario_rol,
+                (COALESCE(am.usuario_nombre, '') COLLATE utf8mb4_unicode_ci) AS usuario_nombre,
+                (COALESCE(am.usuario_login, '') COLLATE utf8mb4_unicode_ci) AS usuario_login,
+                (COALESCE(am.usuario_rol, '') COLLATE utf8mb4_unicode_ci) AS usuario_rol,
                 am.almacen_id,
-                am.almacen_nombre,
-                am.modulo,
-                am.accion,
-                am.entidad,
-                am.registro_id,
-                am.descripcion,
-                am.datos_anteriores,
-                am.datos_nuevos,
-                am.metadata,
-                am.direccion_ip,
-                am.user_agent,
-                am.metodo_http,
-                am.url,
+                (COALESCE(am.almacen_nombre, '') COLLATE utf8mb4_unicode_ci) AS almacen_nombre,
+                (COALESCE(am.modulo, '') COLLATE utf8mb4_unicode_ci) AS modulo,
+                (COALESCE(am.accion, '') COLLATE utf8mb4_unicode_ci) AS accion,
+                (COALESCE(am.entidad, '') COLLATE utf8mb4_unicode_ci) AS entidad,
+                (COALESCE(am.registro_id, '') COLLATE utf8mb4_unicode_ci) AS registro_id,
+                (COALESCE(am.descripcion, '') COLLATE utf8mb4_unicode_ci) AS descripcion,
+                (COALESCE(CAST(am.datos_anteriores AS CHAR CHARACTER SET utf8mb4), '') COLLATE utf8mb4_unicode_ci) AS datos_anteriores,
+                (COALESCE(CAST(am.datos_nuevos AS CHAR CHARACTER SET utf8mb4), '') COLLATE utf8mb4_unicode_ci) AS datos_nuevos,
+                (COALESCE(CAST(am.metadata AS CHAR CHARACTER SET utf8mb4), '') COLLATE utf8mb4_unicode_ci) AS metadata,
+                (COALESCE(am.direccion_ip, '') COLLATE utf8mb4_unicode_ci) AS direccion_ip,
+                (COALESCE(am.user_agent, '') COLLATE utf8mb4_unicode_ci) AS user_agent,
+                (COALESCE(am.metodo_http, '') COLLATE utf8mb4_unicode_ci) AS metodo_http,
+                (COALESCE(am.url, '') COLLATE utf8mb4_unicode_ci) AS url,
                 am.creado_en,
-                'AUDITORIA' AS fuente,
+                ('AUDITORIA' COLLATE utf8mb4_unicode_ci) AS fuente,
                 CASE
                     WHEN am.entidad = 'movimiento'
                          AND am.registro_id REGEXP '^[0-9]+$'
                     THEN CAST(am.registro_id AS UNSIGNED)
                     ELSE NULL
                 END AS movimiento_id,
-                CONCAT_WS(' ',
-                    COALESCE(am.descripcion, ''),
-                    COALESCE(am.usuario_nombre, ''),
-                    COALESCE(am.usuario_login, ''),
-                    COALESCE(am.almacen_nombre, ''),
-                    COALESCE(am.modulo, ''),
-                    COALESCE(am.accion, ''),
-                    COALESCE(am.entidad, ''),
-                    COALESCE(am.registro_id, ''),
-                    COALESCE(CAST(am.datos_anteriores AS CHAR), ''),
-                    COALESCE(CAST(am.datos_nuevos AS CHAR), ''),
-                    COALESCE(CAST(am.metadata AS CHAR), ''),
-                    COALESCE((
-                        SELECT GROUP_CONCAT(
-                            CONCAT_WS(' ', px.codigo, px.codigo_barras, px.descripcion, mdx.ubicacion)
-                            SEPARATOR ' '
-                        )
-                        FROM movimiento_detalle mdx
-                        INNER JOIN productos px ON px.id = mdx.producto_id
-                        WHERE am.entidad = 'movimiento'
-                          AND am.registro_id REGEXP '^[0-9]+$'
-                          AND mdx.movimiento_id = CAST(am.registro_id AS UNSIGNED)
-                    ), '')
+                (
+                    CONCAT_WS(' ',
+                        COALESCE(am.descripcion, ''),
+                        COALESCE(am.usuario_nombre, ''),
+                        COALESCE(am.usuario_login, ''),
+                        COALESCE(am.almacen_nombre, ''),
+                        COALESCE(am.modulo, ''),
+                        COALESCE(am.accion, ''),
+                        COALESCE(am.entidad, ''),
+                        COALESCE(am.registro_id, ''),
+                        COALESCE(CAST(am.datos_anteriores AS CHAR CHARACTER SET utf8mb4), ''),
+                        COALESCE(CAST(am.datos_nuevos AS CHAR CHARACTER SET utf8mb4), ''),
+                        COALESCE(CAST(am.metadata AS CHAR CHARACTER SET utf8mb4), ''),
+                        COALESCE((
+                            SELECT GROUP_CONCAT(
+                                (CONVERT(CONCAT_WS(' ', px.codigo, px.codigo_barras, px.descripcion, mdx.ubicacion) USING utf8mb4)
+                                 COLLATE utf8mb4_unicode_ci)
+                                SEPARATOR ' '
+                            )
+                            FROM movimiento_detalle mdx
+                            INNER JOIN productos px ON px.id = mdx.producto_id
+                            WHERE am.entidad = 'movimiento'
+                              AND am.registro_id REGEXP '^[0-9]+$'
+                              AND mdx.movimiento_id = CAST(am.registro_id AS UNSIGNED)
+                        ), '')
+                    ) COLLATE utf8mb4_unicode_ci
                 ) AS texto_busqueda
             FROM auditoria_movimientos am
 
             UNION ALL
 
             SELECT
-                CONCAT('M-', m.id) AS fila_clave,
+                (CONVERT(CONCAT('M-', m.id) USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS fila_clave,
                 m.id,
                 m.usuario_id,
-                u.nombre AS usuario_nombre,
-                u.usuario AS usuario_login,
-                u.rol AS usuario_rol,
+                (CONVERT(COALESCE(u.nombre, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS usuario_nombre,
+                (CONVERT(COALESCE(u.usuario, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS usuario_login,
+                (CONVERT(COALESCE(u.rol, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS usuario_rol,
                 m.almacen_id,
-                a.nombre AS almacen_nombre,
-                CASE m.tipo_movimiento
+                (CONVERT(COALESCE(a.nombre, '') USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS almacen_nombre,
+                (CONVERT(CASE m.tipo_movimiento
                     WHEN 'ENTRADA' THEN 'Entradas'
                     WHEN 'SALIDA' THEN 'Salidas'
                     WHEN 'DEVOLUCION' THEN 'Devoluciones'
                     ELSE 'Movimientos de inventario'
-                END AS modulo,
-                CONCAT('CREAR_', m.tipo_movimiento) AS accion,
-                'movimiento' AS entidad,
-                CAST(m.id AS CHAR) AS registro_id,
-                CONCAT(
+                 END USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS modulo,
+                (CONVERT(CONCAT('CREAR_', m.tipo_movimiento) USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS accion,
+                ('movimiento' COLLATE utf8mb4_unicode_ci) AS entidad,
+                (CONVERT(CAST(m.id AS CHAR) USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS registro_id,
+                (CONVERT(CONCAT(
                     'Movimiento ', m.tipo_movimiento, ' ', m.folio,
                     ' registrado en inventario',
                     CASE WHEN m.referencia IS NOT NULL AND m.referencia <> '' THEN CONCAT('. ', m.referencia) ELSE '' END,
                     CASE WHEN m.observaciones IS NOT NULL AND m.observaciones <> '' THEN CONCAT('. ', m.observaciones) ELSE '' END
-                ) AS descripcion,
-                NULL AS datos_anteriores,
-                NULL AS datos_nuevos,
-                JSON_OBJECT(
+                ) USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS descripcion,
+                ('' COLLATE utf8mb4_unicode_ci) AS datos_anteriores,
+                ('' COLLATE utf8mb4_unicode_ci) AS datos_nuevos,
+                (CONVERT(JSON_OBJECT(
                     'origen', 'movimientos',
                     'folio', m.folio,
                     'tipo_movimiento', m.tipo_movimiento,
                     'fecha_movimiento', m.fecha,
                     'cancelado', m.cancelado,
                     'nota', 'Registro reconstruido desde el movimiento real porque no existe su evento de creación en auditoría.'
-                ) AS metadata,
-                NULL AS direccion_ip,
-                NULL AS user_agent,
-                NULL AS metodo_http,
-                NULL AS url,
+                ) USING utf8mb4) COLLATE utf8mb4_unicode_ci) AS metadata,
+                ('' COLLATE utf8mb4_unicode_ci) AS direccion_ip,
+                ('' COLLATE utf8mb4_unicode_ci) AS user_agent,
+                ('' COLLATE utf8mb4_unicode_ci) AS metodo_http,
+                ('' COLLATE utf8mb4_unicode_ci) AS url,
                 COALESCE(m.created_at, m.fecha) AS creado_en,
-                'MOVIMIENTO_RECONSTRUIDO' AS fuente,
+                ('MOVIMIENTO_RECONSTRUIDO' COLLATE utf8mb4_unicode_ci) AS fuente,
                 m.id AS movimiento_id,
-                CONCAT_WS(' ',
-                    m.folio,
-                    m.tipo_movimiento,
-                    COALESCE(m.referencia, ''),
-                    COALESCE(m.observaciones, ''),
-                    COALESCE(u.nombre, ''),
-                    COALESCE(u.usuario, ''),
-                    COALESCE(a.nombre, ''),
-                    COALESCE((
-                        SELECT GROUP_CONCAT(
-                            CONCAT_WS(' ', p2.codigo, p2.codigo_barras, p2.descripcion, md2.ubicacion)
-                            SEPARATOR ' '
-                        )
-                        FROM movimiento_detalle md2
-                        INNER JOIN productos p2 ON p2.id = md2.producto_id
-                        WHERE md2.movimiento_id = m.id
-                    ), '')
+                (
+                    CONVERT(CONCAT_WS(' ',
+                        m.folio,
+                        m.tipo_movimiento,
+                        COALESCE(m.referencia, ''),
+                        COALESCE(m.observaciones, ''),
+                        COALESCE(u.nombre, ''),
+                        COALESCE(u.usuario, ''),
+                        COALESCE(a.nombre, ''),
+                        COALESCE((
+                            SELECT GROUP_CONCAT(
+                                CONCAT_WS(' ', p2.codigo, p2.codigo_barras, p2.descripcion, md2.ubicacion)
+                                SEPARATOR ' '
+                            )
+                            FROM movimiento_detalle md2
+                            INNER JOIN productos p2 ON p2.id = md2.producto_id
+                            WHERE md2.movimiento_id = m.id
+                        ), '')
+                    ) USING utf8mb4) COLLATE utf8mb4_unicode_ci
                 ) AS texto_busqueda
             FROM movimientos m
             LEFT JOIN usuarios u ON u.id = m.usuario_id
@@ -160,9 +170,10 @@ class Auditoria
                 SELECT 1
                 FROM auditoria_movimientos ax
                 WHERE ax.entidad = 'movimiento'
-                  AND ax.registro_id = CAST(m.id AS CHAR)
+                  AND ax.registro_id REGEXP '^[0-9]+$'
+                  AND CAST(ax.registro_id AS UNSIGNED) = m.id
                   AND (
-                      ax.accion = CONCAT('CREAR_', m.tipo_movimiento)
+                      CAST(ax.accion AS BINARY) = CAST(CONCAT('CREAR_', m.tipo_movimiento) AS BINARY)
                       OR ax.accion IN (
                           'CREAR_MOVIMIENTO',
                           'REGISTRAR_MOVIMIENTO',
@@ -369,33 +380,52 @@ class Auditoria
             ORDER BY nombre ASC
         ")->fetchAll(PDO::FETCH_ASSOC);
 
-        $modulos = $this->conn->query("
-            SELECT modulo FROM (
-                SELECT DISTINCT modulo FROM auditoria_movimientos WHERE modulo <> ''
-                UNION
-                SELECT DISTINCT CASE tipo_movimiento
-                    WHEN 'ENTRADA' THEN 'Entradas'
-                    WHEN 'SALIDA' THEN 'Salidas'
-                    WHEN 'DEVOLUCION' THEN 'Devoluciones'
-                    ELSE 'Movimientos de inventario'
-                END AS modulo
-                FROM movimientos
-            ) x
-            WHERE modulo <> ''
+        // Evitamos UNION SQL entre auditoria_movimientos (unicode_ci) y
+        // movimientos (general_ci). Se combinan los catálogos en PHP.
+        $modulosAuditoria = $this->conn->query("
+            SELECT DISTINCT modulo
+            FROM auditoria_movimientos
+            WHERE modulo IS NOT NULL AND modulo <> ''
             ORDER BY modulo ASC
         ")->fetchAll(PDO::FETCH_COLUMN);
 
-        $acciones = $this->conn->query("
-            SELECT accion FROM (
-                SELECT DISTINCT accion FROM auditoria_movimientos WHERE accion <> ''
-                UNION
-                SELECT DISTINCT CONCAT('CREAR_', tipo_movimiento) AS accion
-                FROM movimientos
-                WHERE tipo_movimiento <> ''
-            ) x
-            WHERE accion <> ''
+        $modulosInventario = $this->conn->query("
+            SELECT DISTINCT CASE tipo_movimiento
+                WHEN 'ENTRADA' THEN 'Entradas'
+                WHEN 'SALIDA' THEN 'Salidas'
+                WHEN 'DEVOLUCION' THEN 'Devoluciones'
+                ELSE 'Movimientos de inventario'
+            END AS modulo
+            FROM movimientos
+            WHERE tipo_movimiento IS NOT NULL
+        ")->fetchAll(PDO::FETCH_COLUMN);
+
+        $modulos = array_values(array_unique(array_filter(
+            array_merge($modulosAuditoria, $modulosInventario),
+            static fn($value): bool => trim((string) $value) !== ''
+        )));
+        natcasesort($modulos);
+        $modulos = array_values($modulos);
+
+        $accionesAuditoria = $this->conn->query("
+            SELECT DISTINCT accion
+            FROM auditoria_movimientos
+            WHERE accion IS NOT NULL AND accion <> ''
             ORDER BY accion ASC
         ")->fetchAll(PDO::FETCH_COLUMN);
+
+        $accionesInventario = $this->conn->query("
+            SELECT DISTINCT CONCAT('CREAR_', tipo_movimiento) AS accion
+            FROM movimientos
+            WHERE tipo_movimiento IS NOT NULL
+        ")->fetchAll(PDO::FETCH_COLUMN);
+
+        $acciones = array_values(array_unique(array_filter(
+            array_merge($accionesAuditoria, $accionesInventario),
+            static fn($value): bool => trim((string) $value) !== ''
+        )));
+        natcasesort($acciones);
+        $acciones = array_values($acciones);
 
         return [
             'usuarios' => $usuarios,
