@@ -440,3 +440,44 @@
         grid-column: auto;
     }
 }
+
+.audit-source {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: #e8edf3;
+    color: #334155;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .03em;
+}
+
+.audit-source-linked {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.audit-source-reconstructed {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.audit-row-reconstructed td {
+    background: #fffdf7;
+}
+
+.audit-reconstructed-note {
+    margin-top: 13px;
+    padding: 10px 12px;
+    border: 1px solid #f3d38a;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #7c5b12;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.audit-system-table {
+    min-width: 1320px;
+}

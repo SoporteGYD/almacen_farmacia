@@ -120,12 +120,12 @@ include __DIR__ . '/../app/views/layouts/header.php';
             <p>
                 <?= $vista === 'inventario'
                     ? 'Movimientos reales registrados en inventario: entradas, salidas y demás operaciones.'
-                    : 'Bitácora técnica del sistema: accesos, búsquedas, cambios, cancelaciones y acciones de usuarios.' ?>
+                    : 'Bitácora consolidada: auditoría técnica más entradas, salidas y movimientos reales del inventario.' ?>
             </p>
         </div>
         <div class="audit-total">
             <strong><?= number_format((int) $result['total']) ?></strong>
-            <span><?= $vista === 'inventario' ? 'movimientos reales' : 'eventos de auditoría' ?></span>
+            <span><?= $vista === 'inventario' ? 'movimientos reales' : 'eventos / movimientos' ?></span>
         </div>
     </div>
 
@@ -141,6 +141,10 @@ include __DIR__ . '/../app/views/layouts/header.php';
     <?php if ($vista === 'inventario'): ?>
         <div class="audit-alert audit-alert-info">
             Esta vista lee directamente la tabla <strong>movimientos</strong>. Por eso incluye movimientos históricos aunque no tengan un evento equivalente en la auditoría.
+        </div>
+    <?php else: ?>
+        <div class="audit-alert audit-alert-info">
+            Esta vista combina la <strong>auditoría técnica</strong> con los <strong>movimientos reales de inventario</strong>. Si un movimiento antiguo no generó auditoría, se muestra como <strong>reconstruido desde inventario</strong>; no se inventan IP, navegador ni URL.
         </div>
     <?php endif; ?>
 
@@ -306,11 +310,11 @@ include __DIR__ . '/../app/views/layouts/header.php';
                     </tbody>
                 </table>
             <?php else: ?>
-                <table class="audit-table">
-                    <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Módulo</th><th>Acción</th><th>Descripción</th><th>Detalles</th></tr></thead>
+                <table class="audit-table audit-system-table">
+                    <thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Módulo</th><th>Acción</th><th>Origen</th><th>Descripción</th><th>Detalles</th></tr></thead>
                     <tbody>
                     <?php if ($result['registros'] === []): ?>
-                        <tr><td colspan="6" class="audit-empty">No hay eventos que coincidan con los filtros.</td></tr>
+                        <tr><td colspan="7" class="audit-empty">No hay eventos ni movimientos que coincidan con los filtros.</td></tr>
                     <?php endif; ?>
                     <?php foreach ($result['registros'] as $row): ?>
                         <?php
@@ -318,16 +322,77 @@ include __DIR__ . '/../app/views/layouts/header.php';
                         $after = auditDecodeForView($row['datos_nuevos']);
                         $metadata = auditDecodeForView($row['metadata']);
                         $fields = array_unique(array_merge(array_keys($before), array_keys($after)));
+                        $isReconstructed = (string) ($row['fuente'] ?? '') === 'MOVIMIENTO_RECONSTRUIDO';
+                        $movement = is_array($row['movimiento'] ?? null) ? $row['movimiento'] : null;
+                        $movementDetails = is_array($row['movimiento_detalles'] ?? null) ? $row['movimiento_detalles'] : [];
                         ?>
-                        <tr>
+                        <tr class="<?= $isReconstructed ? 'audit-row-reconstructed' : '' ?>">
                             <td class="audit-date"><?= e(date('d/m/Y H:i:s', strtotime((string) $row['creado_en']))) ?></td>
-                            <td><strong><?= e((string) ($row['usuario_nombre'] ?: 'Usuario no identificado')) ?></strong><small><?= e((string) ($row['usuario_login'] ?? '')) ?><?= !empty($row['usuario_rol']) ? ' · ' . e((string) $row['usuario_rol']) : '' ?></small><?php if (!empty($row['almacen_nombre'])): ?><small><?= e((string) $row['almacen_nombre']) ?></small><?php endif; ?></td>
+                            <td>
+                                <strong><?= e((string) ($row['usuario_nombre'] ?: 'Usuario no identificado')) ?></strong>
+                                <small><?= e((string) ($row['usuario_login'] ?? '')) ?><?= !empty($row['usuario_rol']) ? ' · ' . e((string) $row['usuario_rol']) : '' ?></small>
+                                <?php if (!empty($row['almacen_nombre'])): ?><small><?= e((string) $row['almacen_nombre']) ?></small><?php endif; ?>
+                            </td>
                             <td><?= e((string) $row['modulo']) ?></td>
                             <td><span class="audit-badge <?= e(auditActionClass((string) $row['accion'])) ?>"><?= e(str_replace('_', ' ', (string) $row['accion'])) ?></span></td>
-                            <td><?= e((string) $row['descripcion']) ?><?php if (!empty($row['entidad'])): ?><small><?= e((string) $row['entidad']) ?><?= !empty($row['registro_id']) ? ' #' . e((string) $row['registro_id']) : '' ?></small><?php endif; ?></td>
                             <td>
-                                <details class="audit-details">
+                                <?php if ($isReconstructed): ?>
+                                    <span class="audit-source audit-source-reconstructed">INVENTARIO</span>
+                                    <small>Reconstruido</small>
+                                <?php elseif ((int) ($row['movimiento_id'] ?? 0) > 0): ?>
+                                    <span class="audit-source audit-source-linked">AUDITORÍA</span>
+                                    <small>Vinculado a movimiento</small>
+                                <?php else: ?>
+                                    <span class="audit-source">AUDITORÍA</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?= e((string) $row['descripcion']) ?>
+                                <?php if (!empty($row['entidad'])): ?><small><?= e((string) $row['entidad']) ?><?= !empty($row['registro_id']) ? ' #' . e((string) $row['registro_id']) : '' ?></small><?php endif; ?>
+                                <?php if ($movement !== null): ?>
+                                    <small><strong>Folio:</strong> <?= e((string) ($movement['folio'] ?? '')) ?> · <strong>Tipo:</strong> <?= e(movementTypeLabel((string) ($movement['tipo_movimiento'] ?? ''))) ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <details class="audit-details <?= $movement !== null ? 'inventory-details' : '' ?>">
                                     <summary>Ver detalle</summary>
+
+                                    <?php if ($movement !== null): ?>
+                                        <div class="audit-change-title">Movimiento de inventario relacionado</div>
+                                        <div class="movement-summary-grid">
+                                            <div><span>Folio</span><strong><?= e((string) ($movement['folio'] ?? '')) ?></strong></div>
+                                            <div><span>Tipo</span><strong><?= e(movementTypeLabel((string) ($movement['tipo_movimiento'] ?? ''))) ?></strong></div>
+                                            <div><span>Fecha movimiento</span><strong><?= !empty($movement['fecha']) ? e(date('d/m/Y H:i', strtotime((string) $movement['fecha']))) : 'No disponible' ?></strong></div>
+                                            <div><span>Almacén</span><strong><?= e((string) ($movement['almacen_nombre'] ?? 'Sin almacén')) ?></strong></div>
+                                            <div><span>Referencia</span><strong><?= e((string) (($movement['referencia'] ?? '') ?: 'Sin referencia')) ?></strong></div>
+                                            <div><span>Operación</span><strong><?= e((string) (($movement['tipo_operacion'] ?? '') ?: 'No especificada')) ?></strong></div>
+                                            <div class="movement-summary-wide"><span>Observaciones</span><strong><?= nl2br(e((string) (($movement['observaciones'] ?? '') ?: 'Sin observaciones'))) ?></strong></div>
+                                            <div><span>Estado</span><strong><?= (int) ($movement['cancelado'] ?? 0) === 1 ? 'CANCELADO' : 'APLICADO' ?></strong></div>
+                                            <?php if ((int) ($movement['cancelado'] ?? 0) === 1): ?>
+                                                <div><span>Motivo cancelación</span><strong><?= e((string) (($movement['motivo_cancelacion'] ?? '') ?: 'Sin motivo')) ?></strong></div>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <div class="audit-change-title">Productos del movimiento</div>
+                                        <div class="audit-changes-scroll">
+                                            <table class="audit-changes movement-products">
+                                                <thead><tr><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Ubicación</th><th>Costo</th></tr></thead>
+                                                <tbody>
+                                                <?php foreach ($movementDetails as $detail): ?>
+                                                    <tr>
+                                                        <td><?= e((string) (($detail['codigo_barras'] ?? '') ?: ($detail['codigo'] ?? ''))) ?></td>
+                                                        <td><?= e((string) ($detail['descripcion'] ?? '')) ?></td>
+                                                        <td><?= number_format((int) ($detail['cantidad'] ?? 0)) ?></td>
+                                                        <td><?= e((string) (($detail['ubicacion'] ?? '') ?: 'Sin ubicación')) ?></td>
+                                                        <td>$<?= number_format((float) ($detail['costo_unitario'] ?? 0), 2) ?></td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                                <?php if ($movementDetails === []): ?><tr><td colspan="5">Sin detalle de productos.</td></tr><?php endif; ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    <?php endif; ?>
+
                                     <?php if ($fields !== []): ?>
                                         <div class="audit-change-title">Comparación de cambios</div>
                                         <div class="audit-changes-scroll"><table class="audit-changes"><thead><tr><th>Campo</th><th>Antes</th><th>Después</th></tr></thead><tbody>
@@ -335,11 +400,15 @@ include __DIR__ . '/../app/views/layouts/header.php';
                                         </tbody></table></div>
                                     <?php endif; ?>
                                     <?php if ($metadata !== []): ?><div class="audit-change-title">Información adicional</div><pre class="audit-json"><?= e(auditValueForView($metadata)) ?></pre><?php endif; ?>
+
+                                    <?php if ($isReconstructed): ?>
+                                        <div class="audit-reconstructed-note">Este evento se obtuvo del movimiento real de inventario. Los datos técnicos de navegación no existen para ese registro histórico.</div>
+                                    <?php endif; ?>
                                     <dl class="audit-technical">
-                                        <div><dt>IP</dt><dd><?= e((string) ($row['direccion_ip'] ?: 'No disponible')) ?></dd></div>
-                                        <div><dt>Método</dt><dd><?= e((string) ($row['metodo_http'] ?: 'No disponible')) ?></dd></div>
-                                        <div><dt>URL</dt><dd><?= e((string) ($row['url'] ?: 'No disponible')) ?></dd></div>
-                                        <div><dt>Navegador</dt><dd><?= e((string) ($row['user_agent'] ?: 'No disponible')) ?></dd></div>
+                                        <div><dt>IP</dt><dd><?= e((string) ($row['direccion_ip'] ?: ($isReconstructed ? 'No disponible (histórico)' : 'No disponible'))) ?></dd></div>
+                                        <div><dt>Método</dt><dd><?= e((string) ($row['metodo_http'] ?: ($isReconstructed ? 'No disponible (histórico)' : 'No disponible'))) ?></dd></div>
+                                        <div><dt>URL</dt><dd><?= e((string) ($row['url'] ?: ($isReconstructed ? 'No disponible (histórico)' : 'No disponible'))) ?></dd></div>
+                                        <div><dt>Navegador</dt><dd><?= e((string) ($row['user_agent'] ?: ($isReconstructed ? 'No disponible (histórico)' : 'No disponible'))) ?></dd></div>
                                     </dl>
                                 </details>
                             </td>
