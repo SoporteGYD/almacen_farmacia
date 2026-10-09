@@ -217,7 +217,23 @@ class ExistenciaController
 
                 FROM productos p
                 LEFT JOIN categorias c ON p.categoria_id = c.id
-                LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+                -- Proveedor de la última entrada NO cancelada con proveedor para
+                -- el producto, considerando todas las sucursales y la fecha real
+                -- del movimiento. Si no hay entrada asociada, usar el catálogo.
+                LEFT JOIN proveedores pr ON pr.id = COALESCE(
+                    (
+                        SELECT me.proveedor_id
+                        FROM movimiento_detalle de
+                        INNER JOIN movimientos me ON me.id = de.movimiento_id
+                        WHERE de.producto_id = p.id
+                          AND me.tipo_movimiento = 'ENTRADA'
+                          AND COALESCE(me.cancelado, 0) = 0
+                          AND me.proveedor_id IS NOT NULL
+                        ORDER BY me.fecha DESC, me.id DESC
+                        LIMIT 1
+                    ),
+                    p.proveedor_id
+                )
                 LEFT JOIN ({$subquery}) stock ON stock.producto_id = p.id
                 WHERE p.estado = 1";
 
@@ -255,7 +271,7 @@ class ExistenciaController
         }
 
         if (!empty($filtros['proveedor_id'])) {
-            $sql .= " AND p.proveedor_id = :proveedor_id";
+            $sql .= " AND pr.id = :proveedor_id";
             $params[':proveedor_id'] = (int)$filtros['proveedor_id'];
         }
 

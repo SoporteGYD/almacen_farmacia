@@ -172,7 +172,7 @@ if ($modoEdicion) {
 $referenciaEditar = (string)($entradaEditar['referencia'] ?? '');
 
 $tipoEntradaSeleccionado = '';
-$proveedorSeleccionado = '';
+$proveedorSeleccionado = (string)($entradaEditar['proveedor_nombre'] ?? '');
 $tipoDoc = '';
 $folioDoc = '';
 
@@ -1247,7 +1247,12 @@ body {
 
             <div class="form-field">
                 <label>🏢 Proveedor</label>
-                <input type="text" name="proveedor_nombre" placeholder="Ingrese el nombre del proveedor" value="<?= $modoEdicion ? e($proveedorSeleccionado) : '' ?>">
+                <input type="text" name="proveedor_nombre" list="proveedores-entrada" autocomplete="off" maxlength="150" placeholder="Ingrese el nombre del proveedor" value="<?= $modoEdicion ? e($proveedorSeleccionado) : '' ?>">
+                <datalist id="proveedores-entrada">
+                    <?php foreach ($controller->proveedores() as $proveedorDisponible): ?>
+                        <option value="<?= e($proveedorDisponible['nombre']) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
             </div>
 
             <div class="form-field">

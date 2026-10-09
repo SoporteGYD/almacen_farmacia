@@ -1,0 +1,63 @@
+CORRECCIÓN DE PROVEEDORES — SISTEMA DE ALMACÉN FARMACIA
+======================================================
+
+1) CAMBIOS INCLUIDOS
+   - Las entradas nuevas y editadas ahora buscan o crean su proveedor en
+     la tabla proveedores y guardan el identificador en movimientos.proveedor_id.
+   - Existencias muestra el proveedor de la entrada válida (no cancelada)
+     más reciente CON PROVEEDOR de cada producto, considerando todos los
+     almacenes y ordenando por fecha del movimiento e ID como desempate.
+   - Cuando el producto no tiene entradas con proveedor, se conserva como
+     alternativa su proveedor fijo del catálogo, si existe.
+   - El filtro y búsqueda por proveedor en Existencias consultan el valor
+     mostrado en pantalla.
+   - Entradas sugiere proveedores ya conocidos para prevenir diferencias
+     de escritura; también permite registrar nuevos.
+   - Las 20 filas por página y el diseño de Existencias se conservan.
+
+2) INSTALACIÓN
+   - Realiza un respaldo completo de la base de datos actual.
+   - Reemplaza la carpeta del sistema por la del ZIP (o copia sólo los
+     archivos corregidos, conservando su estructura).
+   - No hay cambios de esquema ni archivos SQL que importar.
+   - Verifica que app/models/Proveedor.php se haya incluido.
+
+3) RECUPERAR ENTRADAS ANTERIORES — MANUAL Y SEGURO
+   - Abre una terminal desde la carpeta principal del sistema, donde están
+     app, public y scripts. Utiliza el PHP y configuración de base de datos
+     empleados por tu instalación (en XAMPP la ruta php.exe puede variar).
+
+   PASO A — Vista previa, sin modificaciones:
+       php scripts/recuperar_proveedores_entradas.php
+
+   Verifica los proveedores, la cantidad de entradas y los ejemplos mostrados.
+
+   PASO B — Respaldar la BD REAL, VERIFICAR que el archivo es recuperable.
+
+   PASO C — Ejecutar recuperación una sola vez, conscientemente:
+       php scripts/recuperar_proveedores_entradas.php --aplicar --respaldo-confirmado
+
+   PASO D — Ejecutar de nuevo la vista previa para confirmar que no quedan
+   entradas recuperables sin vincular. Probar Existencias e Historial Entradas.
+
+   La recuperación se limita a entradas que tengan proveedor_id NULL y cuya
+   referencia tenga un segmento literal "Proveedor: NOMBRE". No inventa
+   proveedores en las entradas que nunca registraron ese dato, ni altera
+   proveedores ya vinculados. Incluye entradas canceladas únicamente para
+   preservar su referencia histórica (no cuentan para Existencias).
+
+   NO modifica ni recalcula cantidades, costos, lotes, productos, existencias
+   ni folios. Opera con transacción; ante un error revierte los cambios.
+   No se ejecuta al entrar a la página ni al instalar el ZIP.
+
+4) PRUEBAS EN TU INSTALACIÓN
+   - Crear una entrada nueva con "NADRO", verificar en Historial Entradas
+     y en Existencias que aparece NADRO para los productos incluidos.
+   - Registrar una entrada posterior para el mismo producto con "SAHUAYO";
+     Existencias debe mostrar SAHUAYO, sin perder NADRO en la primera entrada.
+   - Verificar que al cancelar la última entrada se muestra la anterior,
+     cuando la operación de cancelación sea válida según el inventario.
+   - Revisar búsqueda, filtro Proveedor, paginación de 20 filas y costos.
+
+IMPORTANTE: El ZIP NO contiene una migración ya ejecutada contra tu servidor.
+Los datos históricos sólo cambiarán después del PASO C.

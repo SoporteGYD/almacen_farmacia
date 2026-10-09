@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/Proveedor.php';
 
 class Movimiento
 {
@@ -1008,6 +1009,16 @@ class Movimiento
                 $data['folio'] = $this->generarFolioEntrada($almacenId);
             }
 
+            // Registrar el proveedor dentro de la misma transacción de la entrada.
+            // No usar sólo el texto de referencia: la FK se necesita para reportes.
+            $proveedorId = $data['tipo_movimiento'] === 'ENTRADA'
+                ? Proveedor::resolverId(
+                    $this->conn,
+                    (string)($data['proveedor_nombre'] ?? ''),
+                    !empty($data['proveedor_id']) ? (int)$data['proveedor_id'] : null
+                )
+                : (!empty($data['proveedor_id']) ? (int)$data['proveedor_id'] : null);
+
             $sqlMovimiento = "INSERT INTO movimientos (
                                 folio, tipo_movimiento, fecha, almacen_id,
                                 usuario_id, proveedor_id, referencia, observaciones
@@ -1024,7 +1035,7 @@ class Movimiento
                 ':fecha' => $data['fecha'],
                 ':almacen_id' => $almacenId ?: null,
                 ':usuario_id' => $data['usuario_id'],
-                ':proveedor_id' => $data['proveedor_id'] ?: null,
+                ':proveedor_id' => $proveedorId,
                 ':referencia' => $data['referencia'] ?: null,
                 ':observaciones' => $data['observaciones'] ?: null,
             ]);
@@ -2441,6 +2452,12 @@ public function actualizarMovimiento(int $movimientoId, array $data, array $deta
             throw new Exception('No se pudo identificar la sucursal del almacén.');
         }
 
+        $proveedorId = Proveedor::resolverId(
+            $this->conn,
+            (string)($data['proveedor_nombre'] ?? ''),
+            !empty($data['proveedor_id']) ? (int)$data['proveedor_id'] : null
+        );
+
         // Obtener detalles originales para revertir inventario
         $sqlDetalleOriginal = "SELECT producto_id, cantidad, ubicacion, lote_id, costo_unitario
                                FROM movimiento_detalle
@@ -2510,7 +2527,7 @@ public function actualizarMovimiento(int $movimientoId, array $data, array $deta
             ':fecha' => $data['fecha'],
             ':almacen_id' => $almacenId,
             ':usuario_id' => $data['usuario_id'],
-            ':proveedor_id' => $data['proveedor_id'] ?: null,
+            ':proveedor_id' => $proveedorId,
             ':referencia' => $data['referencia'] ?: null,
             ':observaciones' => $data['observaciones'] ?: null,
             ':id' => $movimientoId
