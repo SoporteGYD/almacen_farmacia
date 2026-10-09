@@ -164,6 +164,25 @@ class ProductoController
             ];
         }
 
+        // El proveedor es opcional, pero solo admite proveedores comerciales.
+        // Los traspasos se documentan en Entradas y sus observaciones.
+        $nombreProveedor = trim((string)($data['proveedor_nombre'] ?? ''));
+        $longitudProveedor = function_exists('mb_strlen')
+            ? mb_strlen($nombreProveedor, 'UTF-8')
+            : strlen($nombreProveedor);
+        if ($longitudProveedor > 150) {
+            return [
+                'success' => false,
+                'message' => 'El nombre del proveedor no puede superar 150 caracteres.'
+            ];
+        }
+        if ($nombreProveedor !== '' && proveedorEsConceptoInterno($nombreProveedor)) {
+            return [
+                'success' => false,
+                'message' => 'TRASPASO o ENTRADA no son proveedores comerciales. Deja el proveedor vacío; registra el traspaso en Entradas.'
+            ];
+        }
+
         if (!is_numeric($data['precio_compra']) || (float)$data['precio_compra'] < 0) {
             return [
                 'success' => false,

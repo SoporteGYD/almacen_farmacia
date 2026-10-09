@@ -802,7 +802,7 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
                                 <td><?= e($producto['codigo_barras']) ?></td>
                                 <td><?= e($producto['descripcion']) ?></td>
                                 <td><?= e($producto['categoria'] ?? '') ?></td>
-                                <td><?= e($producto['proveedor'] ?? '') ?></td>
+                                <td><?= e(trim((string)($producto['proveedor'] ?? '')) ?: 'Sin proveedor') ?></td>
                                 <td><?= e($producto['laboratorio'] ?? '') ?></td>
                                 <td><?= e($producto['unidad_medida'] ?? '') ?></td>
                                 <td>$<?= number_format((float)($producto['costo_ultimo'] ?? $producto['precio_compra'] ?? 0), 2) ?></td>

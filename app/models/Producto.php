@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/Proveedor.php';
 
 class Producto
 {
@@ -57,39 +58,14 @@ class Producto
         return $this->conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Resolver el proveedor del catálogo sin crear proveedores falsos para
+     * TRASPASO, ENTRADA u otros movimientos internos.
+     * Se comparte la misma lógica validada que utiliza Entradas.
+     */
     private function obtenerOCrearProveedor(string $nombre): ?int
     {
-        $nombre = strtoupper(trim($nombre));
-
-        if ($nombre === '') {
-            return null;
-        }
-
-        $sql = "SELECT id
-                FROM proveedores
-                WHERE UPPER(nombre) = :nombre
-                LIMIT 1";
-
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([
-            ':nombre' => $nombre
-        ]);
-
-        $id = $stmt->fetchColumn();
-
-        if ($id) {
-            return (int)$id;
-        }
-
-        $sqlInsert = "INSERT INTO proveedores (nombre, estado)
-                      VALUES (:nombre, 1)";
-
-        $stmtInsert = $this->conn->prepare($sqlInsert);
-        $stmtInsert->execute([
-            ':nombre' => $nombre
-        ]);
-
-        return (int)$this->conn->lastInsertId();
+        return Proveedor::resolverId($this->conn, $nombre);
     }
 
     private function calcularEstadoStock(int $existencia): string
@@ -176,7 +152,22 @@ class Producto
 
                     FROM productos p
                     LEFT JOIN categorias c ON p.categoria_id = c.id
-                    LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+                    -- Mismo criterio que Existencias: proveedor de la última entrada
+                    -- comercial no cancelada; si no existe, proveedor del alta.
+                    LEFT JOIN proveedores pr ON pr.id = COALESCE(
+                        (
+                            SELECT me.proveedor_id
+                            FROM movimiento_detalle de
+                            INNER JOIN movimientos me ON me.id = de.movimiento_id
+                            WHERE de.producto_id = p.id
+                              AND me.tipo_movimiento = 'ENTRADA'
+                              AND COALESCE(me.cancelado, 0) = 0
+                              AND me.proveedor_id IS NOT NULL
+                            ORDER BY me.fecha DESC, me.id DESC
+                            LIMIT 1
+                        ),
+                        p.proveedor_id
+                    )
                     LEFT JOIN producto_existencias pe ON pe.producto_id = p.id
                     WHERE p.estado = 1";
         } else {
@@ -224,7 +215,22 @@ class Producto
 
                     FROM productos p
                     LEFT JOIN categorias c ON p.categoria_id = c.id
-                    LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+                    -- Mismo criterio que Existencias: proveedor de la última entrada
+                    -- comercial no cancelada; si no existe, proveedor del alta.
+                    LEFT JOIN proveedores pr ON pr.id = COALESCE(
+                        (
+                            SELECT me.proveedor_id
+                            FROM movimiento_detalle de
+                            INNER JOIN movimientos me ON me.id = de.movimiento_id
+                            WHERE de.producto_id = p.id
+                              AND me.tipo_movimiento = 'ENTRADA'
+                              AND COALESCE(me.cancelado, 0) = 0
+                              AND me.proveedor_id IS NOT NULL
+                            ORDER BY me.fecha DESC, me.id DESC
+                            LIMIT 1
+                        ),
+                        p.proveedor_id
+                    )
                     LEFT JOIN producto_existencias pe ON pe.producto_id = p.id
                     WHERE p.estado = 1";
 
@@ -237,6 +243,7 @@ class Producto
                         p.codigo LIKE :search_codigo
                         OR p.codigo_barras LIKE :search_barras
                         OR p.descripcion LIKE :search_descripcion
+                        OR pr.nombre LIKE :search_proveedor
                         OR p.laboratorio LIKE :search_laboratorio
                         OR p.ubicacion LIKE :search_ubicacion_producto
                         OR pe.ubicacion LIKE :search_ubicacion_existencia
@@ -247,6 +254,7 @@ class Producto
             $params[':search_codigo'] = $valorSearch;
             $params[':search_barras'] = $valorSearch;
             $params[':search_descripcion'] = $valorSearch;
+            $params[':search_proveedor'] = $valorSearch;
             $params[':search_laboratorio'] = $valorSearch;
             $params[':search_ubicacion_producto'] = $valorSearch;
             $params[':search_ubicacion_existencia'] = $valorSearch;
