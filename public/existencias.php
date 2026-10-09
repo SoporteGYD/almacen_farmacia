@@ -28,6 +28,30 @@ $proveedores = $controller->proveedores();
 
 $productos = $controller->index($filtros);
 $resumen = $controller->resumen($productos);
+
+// Paginación de 20 productos. Los indicadores siguen considerando TODOS
+// los productos filtrados, no solamente los de la página visible.
+$productosPorPagina = 20;
+$totalProductosFiltrados = count($productos);
+$totalPaginas = max(1, (int) ceil($totalProductosFiltrados / $productosPorPagina));
+$paginaSolicitada = filter_var(
+    $_GET['page'] ?? 1,
+    FILTER_VALIDATE_INT,
+    ['options' => ['min_range' => 1]]
+);
+$paginaActual = min($totalPaginas, $paginaSolicitada ?: 1);
+$desplazamiento = ($paginaActual - 1) * $productosPorPagina;
+$productosPagina = array_slice($productos, $desplazamiento, $productosPorPagina);
+$primerRegistro = $totalProductosFiltrados > 0 ? $desplazamiento + 1 : 0;
+$ultimoRegistro = min($desplazamiento + $productosPorPagina, $totalProductosFiltrados);
+
+// Conservar búsqueda, almacén, rack, filtros y orden al cambiar de página.
+$urlPagina = static function (int $numero) use ($filtros): string {
+    return 'existencias.php?' . http_build_query(
+        array_merge($filtros, ['page' => $numero])
+    ) . '#inventario-actual';
+};
+
 $valorInventario = $esAdmin
     ? $controller->valorInventario(
         (int) $filtros['almacen_id']
@@ -308,22 +332,42 @@ include __DIR__ . '/../app/views/layouts/header.php';
 
     </div>
 
-    <div class="erp-table-card existencias-table-card">
+    <div class="erp-table-card existencias-table-card" id="inventario-actual">
 
         <div class="table-topbar">
             <div>
                 <h3>Inventario actual</h3>
 
                 <p>
-                    <?= number_format(count($productos)) ?>
-                    productos encontrados
+                    <?= number_format($totalProductosFiltrados) ?> productos encontrados
+                    <?php if ($totalProductosFiltrados > 0): ?>
+                        · Mostrando <?= number_format($primerRegistro) ?>–<?= number_format($ultimoRegistro) ?>
+                    <?php endif; ?>
                 </p>
             </div>
+            <span class="existencias-page-indicator">
+                20 por página · Página <?= $paginaActual ?> de <?= $totalPaginas ?>
+            </span>
         </div>
 
-        <div class="table-responsive">
+        <div class="table-responsive" role="region" aria-label="Tabla de existencias, deslice horizontalmente si es necesario" tabindex="0">
 
-            <table class="erp-table tabla-existencias">
+            <table class="erp-table tabla-existencias <?= $esAdmin ? 'tabla-existencias--admin' : 'tabla-existencias--general' ?>">
+                <colgroup>
+                    <col class="col-codigo">
+                    <col class="col-barras">
+                    <col class="col-descripcion">
+                    <col class="col-categoria">
+                    <col class="col-proveedor">
+                    <col class="col-unidad">
+                    <col class="col-almacen">
+                    <col class="col-ubicacion">
+                    <col class="col-existencia">
+                    <col class="col-estado">
+                    <?php if ($esAdmin): ?>
+                        <col class="col-costos">
+                    <?php endif; ?>
+                </colgroup>
 
                 <thead>
                     <tr>
@@ -346,9 +390,9 @@ include __DIR__ . '/../app/views/layouts/header.php';
 
                 <tbody>
 
-                    <?php if (!empty($productos)): ?>
+                    <?php if (!empty($productosPagina)): ?>
 
-                        <?php foreach ($productos as $producto): ?>
+                        <?php foreach ($productosPagina as $producto): ?>
 
                             <?php
 
@@ -468,6 +512,51 @@ include __DIR__ . '/../app/views/layouts/header.php';
             </table>
 
         </div>
+
+        <?php if ($totalPaginas > 1): ?>
+            <nav class="existencias-pagination" aria-label="Páginas de existencias">
+                <div class="existencias-pagination-info">
+                    Mostrando <strong><?= number_format($primerRegistro) ?>–<?= number_format($ultimoRegistro) ?></strong>
+                    de <strong><?= number_format($totalProductosFiltrados) ?></strong> productos
+                </div>
+
+                <div class="existencias-pagination-links">
+                    <?php if ($paginaActual > 1): ?>
+                        <a href="<?= e($urlPagina(1)) ?>" aria-label="Ir a la primera página">« Primera</a>
+                        <a href="<?= e($urlPagina($paginaActual - 1)) ?>" aria-label="Ir a la página anterior">‹ Anterior</a>
+                    <?php else: ?>
+                        <span class="is-disabled" aria-disabled="true">« Primera</span>
+                        <span class="is-disabled" aria-disabled="true">‹ Anterior</span>
+                    <?php endif; ?>
+
+                    <?php
+                        $paginaInicial = max(1, $paginaActual - 2);
+                        $paginaFinal = min($totalPaginas, $paginaActual + 2);
+                    ?>
+                    <?php if ($paginaInicial > 1): ?>
+                        <span class="pagination-ellipsis" aria-hidden="true">…</span>
+                    <?php endif; ?>
+                    <?php for ($numero = $paginaInicial; $numero <= $paginaFinal; $numero++): ?>
+                        <?php if ($numero === $paginaActual): ?>
+                            <span class="is-current" aria-current="page"><?= $numero ?></span>
+                        <?php else: ?>
+                            <a href="<?= e($urlPagina($numero)) ?>" aria-label="Ir a la página <?= $numero ?>"><?= $numero ?></a>
+                        <?php endif; ?>
+                    <?php endfor; ?>
+                    <?php if ($paginaFinal < $totalPaginas): ?>
+                        <span class="pagination-ellipsis" aria-hidden="true">…</span>
+                    <?php endif; ?>
+
+                    <?php if ($paginaActual < $totalPaginas): ?>
+                        <a href="<?= e($urlPagina($paginaActual + 1)) ?>" aria-label="Ir a la página siguiente">Siguiente ›</a>
+                        <a href="<?= e($urlPagina($totalPaginas)) ?>" aria-label="Ir a la última página">Última »</a>
+                    <?php else: ?>
+                        <span class="is-disabled" aria-disabled="true">Siguiente ›</span>
+                        <span class="is-disabled" aria-disabled="true">Última »</span>
+                    <?php endif; ?>
+                </div>
+            </nav>
+        <?php endif; ?>
 
     </div>
 

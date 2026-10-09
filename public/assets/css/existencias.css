@@ -175,11 +175,39 @@
     overflow-x: auto;
 }
 
+/* Anchos fijos: el contenido de una ubicación extensa ya no oculta
+   las columnas Existencia, Estado y Costos del lado derecho. */
 .tabla-existencias {
     width: 100%;
+    min-width: 1480px;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 12px;
 }
+
+.tabla-existencias--admin .col-codigo { width: 7.5%; }
+.tabla-existencias--admin .col-barras { width: 8%; }
+.tabla-existencias--admin .col-descripcion { width: 19%; }
+.tabla-existencias--admin .col-categoria { width: 9%; }
+.tabla-existencias--admin .col-proveedor { width: 7%; }
+.tabla-existencias--admin .col-unidad { width: 4%; }
+.tabla-existencias--admin .col-almacen { width: 8%; }
+.tabla-existencias--admin .col-ubicacion { width: 13%; }
+.tabla-existencias--admin .col-existencia { width: 7%; }
+.tabla-existencias--admin .col-estado { width: 9%; }
+.tabla-existencias--admin .col-costos { width: 8.5%; }
+
+.tabla-existencias--general { min-width: 1320px; }
+.tabla-existencias--general .col-codigo { width: 8%; }
+.tabla-existencias--general .col-barras { width: 9%; }
+.tabla-existencias--general .col-descripcion { width: 20%; }
+.tabla-existencias--general .col-categoria { width: 10%; }
+.tabla-existencias--general .col-proveedor { width: 8%; }
+.tabla-existencias--general .col-unidad { width: 5%; }
+.tabla-existencias--general .col-almacen { width: 9%; }
+.tabla-existencias--general .col-ubicacion { width: 13%; }
+.tabla-existencias--general .col-existencia { width: 8%; }
+.tabla-existencias--general .col-estado { width: 10%; }
 
 .tabla-existencias thead th {
     background: #0f62a5;
@@ -195,8 +223,48 @@
 .tabla-existencias tbody td {
     padding: 9px 10px;
     border-bottom: 1px solid #e5e7eb;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
     vertical-align: middle;
+}
+
+/* Sobrescribir las reglas generales de .erp-table sólo en Existencias. */
+.tabla-existencias.erp-table td {
+    padding: 10px 9px !important;
+    font-size: 12px !important;
+}
+
+.tabla-existencias.erp-table th {
+    padding: 11px 9px !important;
+    font-size: 11px !important;
+    letter-spacing: .2px;
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+.tabla-existencias th:nth-child(1),
+.tabla-existencias th:nth-child(2),
+.tabla-existencias td:nth-child(1),
+.tabla-existencias td:nth-child(2),
+.tabla-existencias td:nth-child(9) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+
+.tabla-existencias td:nth-child(1),
+.tabla-existencias td:nth-child(2) {
+    font-variant-numeric: tabular-nums;
+    font-size: 11px !important;
+}
+
+.existencias-table-card {
+    min-width: 0;
+    scroll-margin-top: 14px;
+}
+
+.existencias-table-card .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .tabla-existencias tbody tr:hover {
@@ -204,7 +272,6 @@
 }
 
 .descripcion-cell {
-    min-width: 280px;
     white-space: normal !important;
     font-weight: 700;
     color: #111827;
@@ -554,5 +621,110 @@ body.costos-modal-open {
 
     .btn-cerrar-costos {
         width: 100%;
+    }
+}
+
+/* =========================================================
+   Paginación · 20 productos por página
+   ========================================================= */
+.existencias-page-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    color: #1d4ed8;
+    background: #eff6ff;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.existencias-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 17px;
+    padding-top: 15px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.existencias-pagination-info {
+    color: #475569;
+    font-size: 13px;
+}
+
+.existencias-pagination-links {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.existencias-pagination-links a,
+.existencias-pagination-links span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #0f4c81;
+    text-decoration: none;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    box-sizing: border-box;
+}
+
+.existencias-pagination-links a:hover,
+.existencias-pagination-links a:focus-visible {
+    color: #fff;
+    background: #0f62a5;
+    border-color: #0f62a5;
+}
+
+.existencias-pagination-links .is-current {
+    color: #fff;
+    background: #0f62a5;
+    border-color: #0f62a5;
+}
+
+.existencias-pagination-links .is-disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+}
+
+.existencias-pagination-links .pagination-ellipsis {
+    min-width: 17px;
+    padding-left: 2px;
+    padding-right: 2px;
+    border-color: transparent;
+    color: #64748b;
+}
+
+.tabla-existencias .btn-vista-costos {
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+@media (max-width: 800px) {
+    .existencias-page-indicator {
+        white-space: normal;
+    }
+
+    .existencias-pagination {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .existencias-pagination-links {
+        justify-content: center;
     }
 }
