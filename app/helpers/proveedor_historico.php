@@ -3,8 +3,6 @@
  * Recupera únicamente el nombre explícito "Proveedor: ..." de la referencia.
  * No infiere el proveedor desde otros campos como laboratorio o documento.
  */
-<<<<<<< HEAD
-=======
 /**
  * Etiquetas de movimientos internos: nunca deben convertirse en proveedores.
  * Comparacion por nombre completo para no bloquear nombres comerciales largos.
@@ -22,7 +20,6 @@ function proveedorEsConceptoInterno(?string $nombre): bool
     ], true);
 }
 
->>>>>>> e39fdeb (Excluir traspasos y conceptos internos de proveedores)
 function proveedorHistoricoDesdeReferencia(?string $referencia): ?string
 {
     foreach (explode('|', (string)$referencia) as $segmento) {
@@ -32,12 +29,8 @@ function proveedorHistoricoDesdeReferencia(?string $referencia): ?string
         }
 
         $nombre = trim(preg_replace('/\s+/u', ' ', $partes[1]) ?: $partes[1]);
-<<<<<<< HEAD
-        if ($nombre === '' || preg_match('/^(sin proveedor|no aplica|n\/a|ninguno|s\/p|-)$/iu', $nombre)) {
-=======
         if ($nombre === '' || proveedorEsConceptoInterno($nombre)
             || preg_match('/^(sin proveedor|no aplica|n\/a|ninguno|s\/p|-)$/iu', $nombre)) {
->>>>>>> e39fdeb (Excluir traspasos y conceptos internos de proveedores)
             return null;
         }
         $longitud = function_exists('mb_strlen')

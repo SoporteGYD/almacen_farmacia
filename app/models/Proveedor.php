@@ -1,8 +1,5 @@
 <?php
-<<<<<<< HEAD
-=======
 require_once __DIR__ . '/../helpers/proveedor_historico.php';
->>>>>>> e39fdeb (Excluir traspasos y conceptos internos de proveedores)
 /**
  * Catálogo de proveedores utilizado por Entradas y por la recuperación histórica.
  * El llamador debe abrir la transacción cuando necesite atomicidad con el movimiento.
@@ -12,14 +9,11 @@ final class Proveedor
     public static function resolverId(PDO $conn, string $nombre, ?int $id = null): ?int
     {
         $nombre = trim($nombre);
-<<<<<<< HEAD
-=======
         // Las entradas por traspaso o ajuste NO son proveedores comerciales.
         // Mantener proveedor_id en NULL; las observaciones permanecen intactas.
         if (proveedorEsConceptoInterno($nombre)) {
             return null;
         }
->>>>>>> e39fdeb (Excluir traspasos y conceptos internos de proveedores)
         if ($nombre !== '') {
             $nombre = preg_replace('/\s+/u', ' ', $nombre) ?: $nombre;
             $longitud = function_exists('mb_strlen')
