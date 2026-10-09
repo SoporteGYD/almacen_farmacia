@@ -61,3 +61,28 @@ CORRECCIÓN DE PROVEEDORES — SISTEMA DE ALMACÉN FARMACIA
 
 IMPORTANTE: El ZIP NO contiene una migración ya ejecutada contra tu servidor.
 Los datos históricos sólo cambiarán después del PASO C.
+<<<<<<< HEAD
+=======
+
+5) CONTROL DE TRASPASOS Y RECUPERACIÓN SELECTIVA (OCTUBRE 2026)
+   - "TRASPASO" y "ENTRADA" son conceptos de movimientos internos y NO se
+     registran como proveedores ni por el formulario ni por el script.
+     También se excluyen etiquetas equivalentes: transferencia, traslado,
+     ajuste e inventario inicial. Se respetan las observaciones actuales.
+   - La recuperación histórica funciona con LISTA BLANCA. Por seguridad,
+     autoriza inicialmente solo NADRO, WALMART, FANASA y SAHUAYO.
+   - "FRANCO ESPAÑA GARCIA" y "COMA" NO serán recuperados hasta confirmar
+     que realmente son proveedores. Si se confirman, agrega sus nombres
+     exactos al arreglo $proveedoresAutorizados al inicio del script.
+   - Vista previa SIN CAMBIOS:
+       php scripts/recuperar_proveedores_entradas.php
+   - DESPUÉS de respaldo confirmado, aplicación:
+       php scripts/recuperar_proveedores_entradas.php --aplicar --respaldo-confirmado
+   - Con la vista previa previamente mostrada en Ubuntu, se esperan 58 entradas
+     de estos cuatro proveedores (40 NADRO, 2 WALMART, 15 FANASA, 1 SAHUAYO),
+     20 conceptos internos excluidos, 5 nombres por validar y 13 referencias
+     sin proveedor válido, siempre que los datos del servidor no hayan cambiado.
+   - Esta actualización NO deshace proveedores internos que se hayan insertado
+     anteriormente en otra base de datos (p.ej. XAMPP). Una limpieza requiere
+     una revisión y un respaldo independientes.
+>>>>>>> e39fdeb (Excluir traspasos y conceptos internos de proveedores)

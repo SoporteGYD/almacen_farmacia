@@ -8,6 +8,8 @@
  *   php scripts/recuperar_proveedores_entradas.php --aplicar --respaldo-confirmado
  *
  * Sólo escribe en proveedores y movimientos.proveedor_id cuando está vacío.
+ * Recupera exclusivamente nombres incluidos en la lista blanca de abajo.
+ * Excluye conceptos internos como TRASPASO y ENTRADA.
  * NO modifica productos, existencias, lotes, detalle, costos o movimientos cancelados.
  * El proveedor de Existencias se obtiene de la última entrada NO cancelada.
  */
@@ -19,6 +21,23 @@ if (PHP_SAPI !== 'cli') {
 require_once __DIR__ . '/../app/config/database.php';
 require_once __DIR__ . '/../app/models/Proveedor.php';
 require_once __DIR__ . '/../app/helpers/proveedor_historico.php';
+
+// Lista blanca de proveedores comerciales identificados en la vista previa.
+// COMA y FRANCO ESPAÑA GARCIA quedan pendientes de confirmar; no los
+// autorices sin verificar que realmente sean proveedores.
+$proveedoresAutorizados = [
+    'NADRO',
+    'WALMART',
+    'FANASA',
+    'SAHUAYO',
+];
+$clavesAutorizadas = [];
+foreach ($proveedoresAutorizados as $proveedorAutorizado) {
+    $clave = function_exists('mb_strtoupper')
+        ? mb_strtoupper(trim($proveedorAutorizado), 'UTF-8')
+        : strtoupper(trim($proveedorAutorizado));
+    $clavesAutorizadas[$clave] = true;
+}
 
 $argumentos = array_slice($argv, 1);
 $validos = ['--aplicar', '--respaldo-confirmado', '--ayuda'];
@@ -57,10 +76,36 @@ try {
     $pendientes = [];
     $porProveedor = [];
     $descartados = 0;
+    $conceptosInternos = [];
+    $porRevisar = [];
     while ($fila = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $nombre = proveedorHistoricoDesdeReferencia($fila['referencia'] ?? null);
+        $referencia = $fila['referencia'] ?? null;
+        // Separa etiquetas internas para mostrarlas de forma transparente.
+        $nombreBruto = null;
+        foreach (explode('|', (string)$referencia) as $segmento) {
+            if (preg_match('/^\s*Proveedor\s*:\s*(.+?)\s*$/iu', $segmento, $partes) === 1) {
+                $nombreBruto = trim($partes[1]);
+                break;
+            }
+        }
+        if (proveedorEsConceptoInterno($nombreBruto)) {
+            $claveInterna = function_exists('mb_strtoupper')
+                ? mb_strtoupper($nombreBruto, 'UTF-8') : strtoupper($nombreBruto);
+            $conceptosInternos[$claveInterna] = ($conceptosInternos[$claveInterna] ?? 0) + 1;
+            continue;
+        }
+        $nombre = proveedorHistoricoDesdeReferencia($referencia);
         if ($nombre === null) {
             $descartados++;
+            continue;
+        }
+        $clave = function_exists('mb_strtoupper')
+            ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);
+        if (!isset($clavesAutorizadas[$clave])) {
+            if (!isset($porRevisar[$clave])) {
+                $porRevisar[$clave] = ['nombre' => $nombre, 'total' => 0];
+            }
+            $porRevisar[$clave]['total']++;
             continue;
         }
         $pendientes[] = [
@@ -68,8 +113,6 @@ try {
             'folio' => (string)$fila['folio'],
             'nombre' => $nombre,
         ];
-        $clave = function_exists('mb_strtoupper')
-            ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);
         if (!isset($porProveedor[$clave])) {
             $porProveedor[$clave] = ['nombre' => $nombre, 'total' => 0];
         }
@@ -80,7 +123,15 @@ try {
     echo $aplicar ? "MODO APLICACIÓN\n" : "VISTA PREVIA (SIN CAMBIOS)\n";
     echo 'Entradas recuperables: ' . count($pendientes) . "\n";
     echo 'Referencias sin proveedor válido: ' . $descartados . "\n";
-    echo 'Proveedores diferentes (por nombre): ' . count($porProveedor) . "\n";
+    echo 'Conceptos internos excluidos: ' . array_sum($conceptosInternos) . "\n";
+    foreach ($conceptosInternos as $concepto => $cantidad) {
+        echo "  - {$concepto} ({$cantidad} entradas): NO se creará proveedor\n";
+    }
+    echo 'Nombres pendientes de validar (NO se aplican): ' . array_sum(array_column($porRevisar, 'total')) . "\n";
+    foreach ($porRevisar as $dato) {
+        echo '  - ' . $dato['nombre'] . ' (' . $dato['total'] . " entradas)\n";
+    }
+    echo 'Proveedores autorizados distintos: ' . count($porProveedor) . "\n";
     foreach ($porProveedor as $info) {
         echo '  - ' . $info['nombre'] . ' (' . $info['total'] . " entradas)\n";
     }
@@ -96,7 +147,7 @@ try {
         exit(0);
     }
     if (!$pendientes) {
-        echo "No hay registros pendientes.\n";
+        echo "No hay proveedores autorizados pendientes.\n";
         exit(0);
     }
 
@@ -117,6 +168,7 @@ try {
     $conn->commit();
     echo "\nRecuperación terminada: {$actualizados} entradas vinculadas.\n";
     echo "No se modificaron existencias, costos, productos, cantidades ni folios.\n";
+    echo "Los conceptos internos y nombres no autorizados quedaron sin vincular.\n";
 } catch (Throwable $error) {
     if (isset($conn) && $conn->inTransaction()) {
         $conn->rollBack();
