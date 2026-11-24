@@ -61,8 +61,6 @@ CORRECCIÓN DE PROVEEDORES — SISTEMA DE ALMACÉN FARMACIA
 
 IMPORTANTE: El ZIP NO contiene una migración ya ejecutada contra tu servidor.
 Los datos históricos sólo cambiarán después del PASO C.
-<<<<<<< HEAD
-=======
 
 5) CONTROL DE TRASPASOS Y RECUPERACIÓN SELECTIVA (OCTUBRE 2026)
    - "TRASPASO" y "ENTRADA" son conceptos de movimientos internos y NO se
@@ -85,4 +83,3 @@ Los datos históricos sólo cambiarán después del PASO C.
    - Esta actualización NO deshace proveedores internos que se hayan insertado
      anteriormente en otra base de datos (p.ej. XAMPP). Una limpieza requiere
      una revisión y un respaldo independientes.
->>>>>>> e39fdeb (Excluir traspasos y conceptos internos de proveedores)

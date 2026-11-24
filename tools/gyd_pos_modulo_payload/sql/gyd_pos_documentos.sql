@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS gyd_pos_documentos (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+ usuario_id INT NOT NULL,
+ caja_id INT NOT NULL,
+ tipo ENUM('PENDIENTE','COTIZACION') NOT NULL,
+ titulo VARCHAR(120) NOT NULL,
+ cliente_nombre VARCHAR(120) NOT NULL DEFAULT '',
+ quien_lleva VARCHAR(120) NOT NULL DEFAULT '',
+ items_json LONGTEXT NOT NULL,
+ creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ PRIMARY KEY (id),
+ INDEX idx_gyd_pos_documentos_usuario_caja (usuario_id,caja_id,actualizado_en)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

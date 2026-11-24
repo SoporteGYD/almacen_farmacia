@@ -1,0 +1,26 @@
+/* G&D — mejoras de venta y cobro. No modifica reglas ni saldos del servidor. */
+.pos-cart-actions{display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-wrap:wrap}
+.pos-cart-actions button{font-size:11px;padding:5px 9px;border-radius:7px;background:#e8f0fc;color:#163d6b;border:1px solid #c4d7ee}
+.pos-cart-actions button#pos_clear_cart{background:#fff1ef;color:#9e2833;border-color:#e9c6c8}
+.pos-quantity{display:flex;align-items:center;justify-content:center;gap:4px;min-width:144px}
+.pos-quantity .cart-qty{width:59px;max-width:59px;min-width:0;text-align:center;padding:7px 3px}
+.pos-qty-btn{width:31px;height:33px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;padding:0;font-size:18px;background:#e3eefe;color:#114b91;border:1px solid #c4d6f2}
+.pos-qty-btn:hover:not(:disabled){background:#cedfff}
+.pos-cart-summary{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;border:1px solid #d6e5f8;background:#f5f9ff;color:#244566;padding:7px 11px;border-radius:8px;font-size:11px;margin-top:6px}
+.pos-cart-summary b{color:#143b72;font-variant-numeric:tabular-nums}
+.pos-cart-summary .pos-discount b{color:#147449}
+.pos-pay-breakdown{border:1px solid #d8e6f5;border-radius:9px;background:#f8faff;padding:7px 11px;margin-top:7px}
+.pos-pay-breakdown div{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#3c5674;padding:2px 0}
+.pos-pay-breakdown strong{color:#153d66;font-variant-numeric:tabular-nums}
+.pos-confirm-overlay{z-index:110!important}
+.pos-confirm-dialog{width:min(490px,100%);max-width:100%;max-height:85vh;overflow-y:auto}
+.pos-confirm-dialog h2{display:block;font-size:21px;margin:0 0 8px}
+.pos-confirm-dialog .pos-confirm-sub{font-size:13px;color:#51667d;line-height:1.5}
+.pos-confirm-lines{margin-top:12px;border:1px solid #d8e5f2;border-radius:11px;overflow:hidden}
+.pos-confirm-lines>div{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:8px 12px;border-bottom:1px solid #e8eff7;font-size:13px}
+.pos-confirm-lines>div:last-child{border-bottom:0;background:#e7f1ff;font-size:17px;color:#154785}
+.pos-confirm-lines span{color:#49617e}
+.pos-confirm-lines strong{font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere}
+.pos-confirm-dialog .dialogActions{display:flex;gap:10px;justify-content:flex-end}
+.pos-confirm-dialog .dialogActions button{width:auto;min-width:150px;flex:1}
+@media(max-width:680px){.pos-cart-summary{gap:8px}.pos-cart-actions small{display:none}.pos-confirm-dialog .dialogActions{flex-wrap:wrap}.pos-confirm-dialog .dialogActions button{min-width:100%;}}

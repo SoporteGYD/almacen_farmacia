@@ -1,0 +1,30 @@
+/* Visibilidad del stock físico sin romper el diseño del POS. */
+.resultados{height:165px!important;max-height:165px!important;min-height:100px!important;overflow-y:auto!important;overflow-x:hidden!important}
+.resultados .gyd-product{display:flex;align-items:flex-start;gap:12px;padding:10px 12px!important;margin:4px 0!important;min-height:104px;line-height:1.4}
+.gyd-product-details{display:block;min-width:0;flex:1}
+.gyd-product-details>small{font-size:12px;color:#405775;margin:3px 0}
+.gyd-product-price{flex-shrink:0;color:#173c64;font-size:14px;white-space:nowrap;margin-top:3px}
+.gyd-product-details .stocks-multi{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:7px 0}
+.gyd-stock-panels{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.gyd-stock-pill{display:inline-flex;gap:6px;align-items:center;border:1px solid #bdd6ef;background:#edf5ff;border-radius:8px;padding:5px 8px;color:#153f69;font-size:11px;white-space:nowrap;font-weight:700}
+.gyd-stock-pill strong{font-size:14px;color:#095c8f}
+.gyd-cart-stock{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0}
+.gyd-cart-stock span{border-radius:7px;background:#eaf4fc;color:#1b517a;font-size:11px;padding:4px 8px}
+.gyd-cart-stock b{font-size:13px}
+#carrito .pos-origen{color:#0d624e;font-size:12px;font-weight:700}
+#carrito .pos-solicitar{padding:6px 9px;margin:4px 4px 0 0;font-size:11px}
+.gyd-origen-overlay[hidden]{display:none!important}
+.gyd-origen-overlay{position:fixed;inset:0;background:rgba(9,25,44,.68);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+.gyd-origen-dialog{background:#fff;box-shadow:0 20px 75px #07182b70;border:1px solid #cbd9e9;border-radius:18px;padding:25px;max-width:570px;width:100%;max-height:90dvh;overflow:auto;color:#173553}
+.gyd-origen-tag{display:inline-flex;background:#e7f1ff;color:#17568a;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:750}
+.gyd-origen-dialog h2{font-size:21px;margin:14px 0 8px;line-height:1.25;color:#104c85}
+.gyd-origen-dialog p{font-size:14px;line-height:1.6;margin:6px 0 13px;color:#304d65}
+.gyd-origen-dialog ul{background:#f0f6fc;border-radius:10px;padding:14px 20px 14px 34px;line-height:1.7;font-size:13px;color:#193b61}
+.gyd-origen-dialog li+li{margin-top:8px}
+.gyd-origen-dialog #pos_origen_sale{display:block;margin:12px 0;color:#1d6d4d}
+.gyd-origen-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:20px}
+.gyd-origen-actions button{width:auto;font-size:14px;padding:12px 16px}
+@media(max-width:620px){.resultados{height:195px!important;max-height:195px!important}.gyd-stock-pill{white-space:normal}.gyd-product-price{font-size:12px}.gyd-origen-actions button{flex:1}}
+
+.gyd-inventory-warning{display:block!important;margin-top:5px;color:#9b2b22!important;font-weight:700;font-size:11px}
+.stocks-multi .stock-branch b{display:inline!important}

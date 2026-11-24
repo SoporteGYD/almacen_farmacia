@@ -1,0 +1,66 @@
+{
+  "app/helpers/gyd_clientes_rewards.php": [
+    {
+      "old": "require_once __DIR__.'/gyd_rewards_reversiones_v37.php';",
+      "new": "require_once __DIR__.'/gyd_rewards_reversiones_v37.php';\nrequire_once __DIR__.'/gyd_rewards_lineas_v47.php';"
+    },
+    {
+      "old": "$elegible=0;$utilidad=0;$excluidos=0;",
+      "new": "$elegible=0;$utilidad=0;$excluidos=0;$lineasParaReembolso=[];"
+    },
+    {
+      "old": "        foreach($detalle as $d){\n            // Excluir precios especiales, renglones sin costo y márgenes inseguros.",
+      "new": "        foreach($detalle as $d){\n            // Snapshot por renglón: incluye también los excluidos con cero puntos.\n            $lineasParaReembolso[]=['producto_id'=>(int)$d['id'],\n              'presentacion'=>(string)($d['presentacion']??'PIEZA'),\n              'cantidad'=>(int)$d['cantidad'],'importe_elegible_centavos'=>0];\n            $lineaIdx=count($lineasParaReembolso)-1;\n            // Excluir precios especiales, renglones sin costo y márgenes inseguros."
+    },
+    {
+      "old": "$elegible+=$importe;$utilidad+=$ganancia;",
+      "new": "$elegible+=$importe;$utilidad+=$ganancia;\n            $lineasParaReembolso[$lineaIdx]['importe_elegible_centavos']=$importe;"
+    },
+    {
+      "old": "        return ['cliente_id'=>$cliente,'puntos'=>$puntos,",
+      "new": "        GydRewardsLineasV47::registrarVenta($db,$cliente,$venta,$lineasParaReembolso,$puntos);\n        return ['cliente_id'=>$cliente,'puntos'=>$puntos,"
+    }
+  ],
+  "app/models/PosReversiones.php": [
+    {
+      "old": "require_once __DIR__.'/../helpers/pos_inteligente.php';",
+      "new": "require_once __DIR__.'/../helpers/pos_inteligente.php';\nrequire_once __DIR__.'/../helpers/gyd_rewards_lineas_v47.php';"
+    },
+    {
+      "old": "            $this->audit($uid,$ventaId,$tipo,['motivo'=>$motivo",
+      "new": "            $reversionNuevaId=(int)$this->db->lastInsertId();\n            GydRewardsLineasV47::aplicarReversion($this->db,$reversionNuevaId,$ventaId,$tipo,$detId,$uid);\n            $this->audit($uid,$ventaId,$tipo,['motivo'=>$motivo"
+    }
+  ],
+  "app/helpers/gyd_rewards_reversiones_v37.php": [
+    {
+      "old": "AND pr.tipo<>'CANCELACION_TOTAL'",
+      "new": "AND pr.tipo<>'CANCELACION_TOTAL'\n            AND NOT EXISTS (SELECT 1 FROM gyd_rewards_devoluciones_v47 rd\n              WHERE rd.reversion_id=pr.id AND rd.estado='APLICADA')"
+    }
+  ],
+  "public/erp_pos_reversiones.php": [
+    {
+      "old": "<a class=\"btn alt\" href=\"pos.php\">← Punto de Venta</a>",
+      "new": "<a class=\"btn alt\" href=\"pos.php\">← Punto de Venta</a><a class=\"btn alt\" href=\"gyd_rewards_devoluciones.php\">Auditoría de puntos</a>"
+    },
+    {
+      "old": "$pendientesOrigen=[];$verificacionesPorProducto=[];$devolvibles=[];",
+      "new": "$pendientesOrigen=[];$verificacionesPorProducto=[];$devolvibles=[];$saldoDevolucion=[];"
+    },
+    {
+      "old": " if(in_array($d['origen']??'',['FARMACIA','FARMACIA_GENERAL'],true))$devolvibles[]=$d;",
+      "new": " $devuelta=0;\n foreach($detalle['reversiones'] as $rv){\n   if((int)($rv['detalle_id']??0)===(int)$d['id'] &&\n      ($rv['estado']??'')==='APLICADA' && ($rv['tipo']??'')==='DEVOLUCION_PARCIAL')\n      $devuelta+=(int)$rv['cantidad_presentaciones'];\n }\n $saldoDevolucion[(int)$d['id']]=max(0,(int)$d['cantidad']-$devuelta);\n if(in_array($d['origen']??'',['FARMACIA','FARMACIA_GENERAL'],true) && $saldoDevolucion[(int)$d['id']]>0)$devolvibles[]=$d;"
+    },
+    {
+      "old": "if(!in_array($d['origen']??'',['FARMACIA','FARMACIA_GENERAL'],true))continue; ?>",
+      "new": "if(!in_array($d['origen']??'',['FARMACIA','FARMACIA_GENERAL'],true) || ($saldoDevolucion[(int)$d['id']]??0)<1)continue; ?>"
+    },
+    {
+      "old": "<?=rev_html($d['cantidad'].' '.$d['presentacion'])?></option>",
+      "new": "<?=rev_html($d['cantidad'].' '.$d['presentacion'])?> · Restantes: <?= (int)($saldoDevolucion[(int)$d['id']]??0) ?></option>"
+    },
+    {
+      "old": "href=\"erp_pos_reversion_ticket.php?id=<?=(int)$r['id']?>\" target=\"_blank\" rel=\"noopener\">Imprimir</a>",
+      "new": "href=\"erp_pos_reversion_ticket.php?id=<?=(int)$r['id']?>\">Imprimir</a>"
+    }
+  ]
+}

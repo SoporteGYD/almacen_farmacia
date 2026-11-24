@@ -1,0 +1,41 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/../app/helpers/auth.php';require_once __DIR__.'/../app/config/database.php';require_once __DIR__.'/../app/helpers/gyd_retiros_directos.php';
+requireLogin();require_once __DIR__.'/../app/helpers/gyd_cortes_autorizados.php';$u=currentUser()?:[];$uid=(int)($u['id']??0);$rolCorte=gyd_corte_rol($u['rol_original']??$u['rol']??'');$esCajero=$rolCorte==='CAJERO';if($uid<1 || (!$esCajero && !gyd_corte_permitido($rolCorte))){http_response_code(403);exit('No tienes permiso para consultar cortes.');}
+try {
+ $db=(new Database())->connect();gr_test_db($db);
+ $turnoId=(int)($_GET['turno_id']??0);
+ if($turnoId<1){
+    if($esCajero){
+      $turnoId=(int)gr_query($db,"SELECT t.id FROM pos_turnos t JOIN pos_cortes_denominaciones d ON d.turno_id=t.id WHERE d.usuario_id=? AND t.estado='CERRADO' ORDER BY t.id DESC LIMIT 1",[$uid])->fetchColumn();
+    } else {$turnoId=(int)gr_query($db,'SELECT id FROM pos_turnos ORDER BY id DESC LIMIT 1')->fetchColumn();}
+ }
+ $t=gr_query($db,'SELECT t.*,c.nombre caja,s.nombre sucursal,u.nombre cajero FROM pos_turnos t JOIN pos_cajas c ON c.id=t.caja_id JOIN pos_sucursales s ON s.id=c.sucursal_id JOIN usuarios u ON u.id=t.usuario_apertura_id WHERE t.id=?',[$turnoId])->fetch(PDO::FETCH_ASSOC);
+ if(!$t)throw new DomainException('No existe el turno.');
+ if($esCajero){
+    require_once __DIR__.'/../app/models/PuntoVenta.php';
+    (new PuntoVenta())->cajaAutorizada($u,(int)$t['caja_id']);
+    if ((string)$t['estado']!=='CERRADO')throw new DomainException('El cajero solo puede ver cortes finalizados.');
+    $st=gr_query($db,'SELECT 1 FROM pos_cortes_denominaciones WHERE turno_id=? AND usuario_id=? LIMIT 1',[$turnoId,$uid]);
+    if (!$st->fetchColumn()) throw new DomainException('No puedes consultar el corte de otro operador.');
+ } else {gyd_corte_caja_permitida($db,$u,(int)$t['caja_id']);}
+ $s=gd_cash_totals($db,$turnoId);$retiros=gd_retiros_turno($db,$turnoId);$res=gd_resumen_corte($t,$s,$retiros);
+ $firma=gr_query($db,'SELECT a.autorizador_rol, aut.nombre autorizado_por, op.nombre solicitado_por FROM gyd_cortes_autorizaciones a LEFT JOIN usuarios aut ON aut.id=a.autorizador_id LEFT JOIN pos_cortes_denominaciones d ON d.turno_id=a.turno_id LEFT JOIN usuarios op ON op.id=d.usuario_id WHERE a.turno_id=? ORDER BY a.id DESC LIMIT 1',[$turnoId])->fetch(PDO::FETCH_ASSOC);
+}catch(Throwable $e){http_response_code(403);exit(gr_h($e instanceof DomainException?$e->getMessage():'No se pudo calcular el corte.'));}
+?>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>G&D | Corte turno #<?=(int)$turnoId?></title><style>body{font:14px system-ui,Arial;background:#edf3f9;margin:0;color:#193b5e}.tools{padding:17px;background:#17507f;color:white}.tools a{color:#fff;margin-right:15px}.wrap{max-width:850px;margin:20px auto;background:white;border:1px solid #d7e3ef;border-radius:12px;padding:24px}h1,h2{margin:7px 0 12px}table{border-collapse:collapse;width:100%;margin:8px 0 18px}td,th{border-bottom:1px solid #dce6ef;padding:10px;text-align:left}td:last-child,th:last-child{text-align:right}.big{font-weight:800;font-size:20px}.bad{color:#af231e}.good{color:#196c40}.note{padding:12px;background:#fff5e6;margin:12px 0}.meta{font-size:12px;color:#53687c}.btn{padding:9px 13px;font:inherit}@media print{@page{size:80mm auto;margin:1mm}body{font:10px Arial;background:white}.tools{display:none}.wrap{width:78mm;max-width:78mm;border:0;margin:0;padding:1mm}table{min-width:0;font-size:9px}td,th{padding:3px;word-break:break-word}.big{font-size:13px}h1{font-size:15px}h2{font-size:12px}}</style></head><body>
+<div class="tools"><a href="pos.php">POS</a><a href="pos_conciliacion_turno.php?turno_id=<?=(int)$turnoId?>">Conciliación detallada del turno</a><a href="pos.php">Autorizar retiro en POS</a><button class="btn" onclick="window.print()">Imprimir / guardar PDF</button></div>
+<div class="wrap"><h1>G&D · Corte de caja y retiros</h1><p><b>Sucursal:</b> <?=gr_h($t['sucursal'])?> · <b>Caja:</b> <?=gr_h($t['caja'])?><br><b>Turno:</b> #<?=(int)$turnoId?> · <b>Cajero:</b> <?=gr_h($t['cajero'])?><br><b>Apertura:</b> <?=gr_h($t['abierto_en'])?><br><b>Cierre:</b> <?=gr_h($t['cerrado_en']??'Turno aún abierto')?></p>
+<?php if($t['estado']!=='CERRADO'):?><div class="note">PRECORTE INFORMATIVO: turno todavía abierto. No sustituye el corte definitivo.</div><?php endif;?>
+<h2>Conciliación de efectivo del turno</h2><table><tr><td>Fondo inicial de caja</td><td><?=gr_money($s['fondo'])?></td></tr><tr><td>Ventas en efectivo</td><td><?=gr_money($s['ventas'])?></td></tr><tr><td>Otros ingresos a caja</td><td><?=gr_money($s['ingresos'])?></td></tr><tr><td>Retiros con comprobantes (<?=count($retiros)?>)</td><td>−<?=gr_money($res['tickets'])?></td></tr><tr><td>Otros retiros históricos/manuales</td><td>−<?=gr_money($res['otros'])?></td></tr><tr><td><b>Total retiros POS</b></td><td><b>−<?=gr_money($res['retiros_totales'])?></b></td></tr><tr><td><b>Efectivo esperado al cierre</b></td><td class="big"><?=gd_signed($s['esperado'])?></td></tr><tr><td>Efectivo contado al cierre</td><td><?=($res['contado']===null?'PENDIENTE':gr_money($res['contado']))?></td></tr><tr><td><b><?=$res['diferencia']===null?'Resultado del corte':($res['diferencia']>0?'SOBRANTE':($res['diferencia']<0?'FALTANTE':'CUADRE EXACTO'))?></b></td><td class="big <?=($res['diferencia']!==null&&$res['diferencia']!==0)?'bad':'good'?>"><?=($res['diferencia']===null?'PENDIENTE':gr_money(abs($res['diferencia'])))?></td></tr></table>
+<h2>Detalle de retiros a bóveda (folio / hora / importe)</h2><table><thead><tr><th>Folio</th><th>Fecha y hora</th><th>Autorizó</th><th>Importe</th></tr></thead><tbody><?php foreach($retiros as $r):?><tr><td><?=gr_h(gd_folio((int)$r['id']))?></td><td><?=gr_h($r['creado_en'])?></td><td><?=gr_h($r['autorizador_nombre']??'Sin dato histórico')?></td><td><?=gr_money(gd_cents($r['importe']))?></td></tr><?php endforeach;?><?php if(!$retiros):?><tr><td colspan="4">Sin retiros documentados en este turno.</td></tr><?php endif;?></tbody></table>
+<p class="meta">Comprobación: cada importe y hora debe coincidir con el ticket del cajero y la copia de bóveda. Las líneas de retiros detallados y otros retiros son componentes del total, no descuentos adicionales. El POS ya descuenta los movimientos una sola vez al cerrar.</p>
+<?php if($res['otros']>0):?><div class="note">ATENCIÓN: existen <?=gr_money($res['otros'])?> de retiros anteriores o manuales que no tienen este formato de ticket. Deben respaldarse con su documentación original.</div><?php endif;?>
+<?php if($res['diferencia']!==null&&$res['diferencia']!==0):?><div class="note">DIFERENCIA SIN AJUSTAR: <?=gd_signed($res['diferencia'])?>. Se conserva para revisión de Gerencia/Contabilidad; el corte no cambia el dinero para cuadrarlo.</div><?php endif;?>
+<h2>Constancia del corte</h2><p><b>Abrió caja:</b> <?=gr_h($t['cajero'])?></p><p><b>Solicitó el corte:</b> <?=gr_h($firma['solicitado_por']??'No registrado')?></p><p><b>Autorizó el corte:</b> <?=gr_h($firma['autorizado_por']??'No registrado')?> · <?=gr_h($firma['autorizador_rol']??'')?></p><p>Entregó cajero: ____________________________</p><p>Recibió Gerencia / Dirección / Contabilidad / Administración: _______________</p><p>Fecha y hora: _____________________________</p></div>
+<?php if (!defined('GYD_HIDE_GLOBAL_NAV')): ?>
+<link rel="stylesheet" href="assets/css/gyd_nav_global.css?v=4">
+<script>window.GYD_NAV_HOME='index.php';window.GYD_NAV_POS='pos.php';</script>
+<script src="assets/js/gyd_nav_global.js?v=4"></script>
+<?php endif; ?>
+</body></html>

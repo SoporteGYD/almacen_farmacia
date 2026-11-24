@@ -1,0 +1,9 @@
+/* Campos de autorización dentro del mismo modal de conteo de efectivo. */
+#gyd-corte-autorizado[hidden]{display:none!important}
+#gyd-corte-autorizado{padding:13px;margin:12px 0;border:1px solid #bdd4ea;background:#f0f6fc;border-radius:10px;color:#17446a}
+#gyd-corte-autorizado h3{margin:0 0 6px;font-size:16px}
+#gyd-corte-autorizado p{margin:0 0 12px;font-size:12px;line-height:1.5}
+#gyd-corte-autorizado label{display:block;font-size:12px;font-weight:700;margin-bottom:10px}
+#gyd-corte-autorizado input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:10px;border:1px solid #adc7df;border-radius:8px;background:#fff;color:#172e49;font:inherit}
+#gyd-corte-autorizado small{font-size:11px;color:#526b82}
+#modal .dialog{max-height:90vh;overflow-y:auto}

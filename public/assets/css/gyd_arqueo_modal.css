@@ -1,0 +1,31 @@
+/* Controles independientes de retiros / arqueos. */
+.gyd-operaciones-efectivo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 17px;margin:10px 0;background:#eff6ff;border:1px solid #c7d8ee;border-radius:10px;font:700 13px system-ui,sans-serif;color:#15436d}
+.gyd-operaciones-efectivo a,.gyd-operaciones-efectivo button{display:inline-flex;align-items:center;justify-content:center;min-height:39px;border-radius:9px;padding:8px 15px;color:#fff!important;border:0;text-decoration:none;font:700 13px system-ui,sans-serif;cursor:pointer}
+.gyd-operaciones-efectivo .gyd-retiro-btn{background:#176a92}.gyd-operaciones-efectivo .gyd-arqueo-btn{background:#a55316}
+.gyd-operaciones-efectivo .gyd-ops-descr{font-size:12px;font-weight:500;color:#486580}
+#gyd-arqueo-overlay[hidden]{display:none!important}
+#gyd-arqueo-overlay{position:fixed;inset:0;z-index:100000;background:rgba(12,28,51,.77);display:grid;place-items:center;padding:18px;isolation:isolate}
+#gyd-arqueo-overlay .gyd-arq-dialog{width:min(100%,470px);max-height:92vh;overflow:auto;background:white!important;color:#153658!important;border-radius:16px;padding:27px;box-shadow:0 20px 70px #0008;text-align:left;font:15px system-ui,sans-serif}
+#gyd-arqueo-overlay h2{font-size:22px;color:#14446e;margin:0 0 13px}
+#gyd-arqueo-overlay p{font-size:14px;line-height:1.5}
+#gyd-arqueo-overlay label{display:block;font-weight:700;margin:15px 0 5px}
+#gyd-arqueo-overlay input{display:block;width:100%;box-sizing:border-box;font:16px system-ui,sans-serif;padding:12px;border:1px solid #a7bdd0;border-radius:8px;color:#1d3550;background:#fff;min-height:40px}
+#gyd-arqueo-overlay .gyd-arq-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+#gyd-arqueo-overlay button{border:0;border-radius:9px;min-height:41px;padding:11px 15px;font-weight:700;cursor:pointer}
+#gyd-arqueo-overlay button[type=submit]{background:#175e9e;color:white}
+#gyd-arqueo-overlay #gyd-arq-close{background:#e6eef6;color:#164164}
+body.gyd-arq-modal-open{overflow:hidden!important}
+/* Página de conteo ciego, siempre sin monto esperado visible. */
+body.arq-page{background:#edf3f9;color:#153658;margin:0;font:15px system-ui,Arial,sans-serif}body.arq-page *{box-sizing:border-box}
+body.arq-page header{background:#174975;color:#fff;padding:19px max(18px,calc((100% - 1000px)/2));display:flex;gap:15px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+body.arq-page header a{color:#fff}body.arq-page .arq-main{max-width:1000px;margin:25px auto;padding:0 15px}
+body.arq-page .arq-card{border:1px solid #d2dfe9;border-radius:14px;background:#fff;padding:26px}
+body.arq-page h1{margin:0 0 13px;font-size:25px}body.arq-page .arq-note{color:#43617a;font-size:13px;line-height:1.6}
+body.arq-page .arq-denoms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}body.arq-page label{display:block;font-weight:650;font-size:14px}
+body.arq-page input,body.arq-page textarea{width:100%;display:block;margin-top:5px;padding:11px;border:1px solid #a6bacc;border-radius:8px;font:inherit}
+body.arq-page .arq-total{background:#ecf4ff;border-radius:10px;padding:18px;margin:18px 0;display:flex;justify-content:space-between;align-items:center;gap:12px}body.arq-page .arq-total strong{font-size:25px}
+body.arq-page .arq-primary{background:#17619e;color:#fff;padding:12px 18px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;margin-top:17px}
+body.arq-page .arq-error{background:#ffe6e3;border:1px solid #ef9b91;padding:16px;border-radius:10px}
+body.arq-page .arq-success{background:#e3f7e6;border:1px solid #83c89d;padding:16px;border-radius:10px}
+@media(max-width:760px){body.arq-page .arq-denoms{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:410px){body.arq-page .arq-denoms{grid-template-columns:1fr}}

@@ -8,7 +8,7 @@ class Database
 {
     private string $host = '127.0.0.1';
     private string $port = '3307';
-    private string $dbName = 'almacen_farmacia';
+    private string $dbName = 'prueba';
     private string $username = 'root';
     private string $password = '';
     private string $charset = 'utf8mb4';
@@ -75,7 +75,13 @@ class Database
                 "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
             );
 
-            return $this->connection;
+            /* GYD_STOCK_CONTEXT_2026: sólo información de sesión para auditoría; sin claves ni contraseñas. */
+            $actor = isset($_SESSION['user']['id']) ? (int)$_SESSION['user']['id'] : null;
+            $ruta = substr((string)($_SERVER['SCRIPT_NAME'] ?? 'CLI'),0,160);
+            $solicitud = bin2hex(random_bytes(12));
+            $stAudit = $this->connection->prepare('SET @gyd_stock_user = ?, @gyd_stock_modulo = ?, @gyd_stock_request = ?, @gyd_stock_folio = NULL');
+            $stAudit->execute([$actor,$ruta,$solicitud]);
+return $this->connection;
         } catch (PDOException $e) {
             error_log(
                 'Error de conexión con MySQL: '

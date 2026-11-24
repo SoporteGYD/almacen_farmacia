@@ -35,6 +35,18 @@ if (!in_array($tipoSolicitudModulo, ['RESURTIDO', 'TICKET'], true)) {
     $tipoSolicitudModulo = 'RESURTIDO';
 }
 
+/** Los tickets POS usan folio_documento='POS-' + 12 caracteres hexadecimales.
+ * El usuario solicitante es el cajero de la sesión POS.
+ * No confundir con verificador_nombre, reservado para las solicitudes habituales.
+ */
+function esSolicitudPosDeCajero(array $solicitud): bool
+{
+    return preg_match(
+        '/^POS-[A-F0-9]{12}$/iD',
+        trim((string) ($solicitud['folio_documento'] ?? ''))
+    ) === 1;
+}
+
 $esModuloTicket = $tipoSolicitudModulo === 'TICKET';
 $endpointModulo = $esModuloTicket
     ? 'tickets.php'
@@ -1392,6 +1404,14 @@ require __DIR__
 ?>
 
 <div class="resurtidos-contenedor">
+<section id="pi-alertas" style="display:none;margin:12px 0;padding:16px;background:#fff1d7;border:1px solid #c48d24;border-radius:12px;color:#674515" role="status"><strong>⚠️ Farmacia: productos con pocas piezas</strong><div id="pi-alertas-lista" style="margin-top:8px"></div><small>Los verificadores pueden solicitar resurtido desde este módulo; evita generar varias solicitudes para el mismo producto.</small></section>
+<script>
+(function(){
+async function avisarFisico(){try{const r=await fetch('pos_inteligente_api.php?action=alertas',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const j=await r.json();const root=document.getElementById('pi-alertas'),list=document.getElementById('pi-alertas-lista');if(!root||!list)return;const a=j.alertas||[];root.style.display=a.length?'block':'none';list.replaceChildren();a.slice(0,20).forEach(x=>{const row=document.createElement('div');row.textContent=x.sucursal+' · '+x.codigo+' '+x.descripcion+' — Farmacia '+x.existencia+' pzas, mínimo '+x.minimo;row.style.padding='4px 0';list.append(row);});}catch(e){console.debug('Alertas Farmacia',e);}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',avisarFisico);else avisarFisico();setInterval(avisarFisico,180000);
+})();
+</script>
+
 
     <section class="resurtidos-encabezado">
 
@@ -1969,17 +1989,23 @@ require __DIR__
                             </span>
 
                             <span class="verificador-solicitud">
-                                Solicitó:
-                                <strong>
-                                    <?= htmlspecialchars(
-                                        (string) (
-                                            $resurtido['verificador_nombre']
-                                            ?: 'Sin identificar'
-                                        ),
+                                <?php if (esSolicitudPosDeCajero($resurtido)): ?>
+                                    Solicitó el cajero:
+                                    <strong><?= htmlspecialchars(
+                                        trim((string) ($resurtido['solicitante_nombre'] ?? ''))
+                                            ?: 'Cajero sin nombre registrado',
                                         ENT_QUOTES,
                                         'UTF-8'
-                                    ) ?>
-                                </strong>
+                                    ) ?></strong>
+                                <?php else: ?>
+                                    Solicitó:
+                                    <strong><?= htmlspecialchars(
+                                        trim((string) ($resurtido['verificador_nombre'] ?? ''))
+                                            ?: 'Sin identificar',
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?></strong>
+                                <?php endif; ?>
                             </span>
 
                             <span
@@ -3482,21 +3508,22 @@ require __DIR__
                     )}
                 </p>
 
-                <p>
-                    <strong>Verificador que solicitó:</strong>
-                    ${escaparHtml(
-                        resurtido.verificador_nombre
-                        || 'Sin identificar'
-                    )}
-                </p>
-
-                <p>
-                    <strong>Gerente que autorizó:</strong>
-                    ${escaparHtml(
-                        resurtido.solicitante_nombre
-                        || 'Sin información'
-                    )}
-                </p>
+                ${esSolicitudPosCajero(resurtido) ? `
+                    <p>
+                        <strong>Solicitó el cajero:</strong>
+                        ${escaparHtml(resurtido.solicitante_nombre || 'Cajero sin nombre registrado')}
+                    </p>
+                    <p><strong>Origen:</strong> Punto de Venta G&amp;D</p>
+                ` : `
+                    <p>
+                        <strong>Verificador que solicitó:</strong>
+                        ${escaparHtml(resurtido.verificador_nombre || 'Sin identificar')}
+                    </p>
+                    <p>
+                        <strong>Gerente que autorizó:</strong>
+                        ${escaparHtml(resurtido.solicitante_nombre || 'Sin información')}
+                    </p>
+                `}
 
                 <p>
                     <strong>Almacén:</strong>
@@ -3817,6 +3844,14 @@ require __DIR__
     // ACTUALIZACIÓN AUTOMÁTICA SIN RECARGAR
     // ==================================================
 
+    // POS: el cajero figura como solicitante del ticket.
+    // Otros tickets continúan mostrando el verificador que los creó.
+    function esSolicitudPosCajero(solicitud) {
+        return /^POS-[A-F0-9]{12}$/i.test(
+            String(solicitud?.folio_documento || '').trim()
+        );
+    }
+
     function renderizarSolicitudesActuales(
         solicitudes
     ) {
@@ -3875,15 +3910,17 @@ require __DIR__
                     `
                     : '';
 
+                const desdePos = esSolicitudPosCajero(solicitud);
+                const etiquetaSolicitante = desdePos
+                    ? 'Solicitó el cajero:'
+                    : 'Solicitó:';
+                const nombreSolicitante = desdePos
+                    ? (solicitud.solicitante_nombre || 'Cajero sin nombre registrado')
+                    : (solicitud.verificador_nombre || 'Sin identificar');
                 const verificadorSolicitud = `
                     <span class="verificador-solicitud">
-                        Solicitó:
-                        <strong>
-                            ${escaparHtml(
-                                solicitud.verificador_nombre
-                                || 'Sin identificar'
-                            )}
-                        </strong>
+                        ${etiquetaSolicitante}
+                        <strong>${escaparHtml(nombreSolicitante)}</strong>
                     </span>
                 `;
 

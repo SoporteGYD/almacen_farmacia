@@ -1,0 +1,18 @@
+{
+  "public/pos.php": [
+    {
+      "old": "<link rel=\"stylesheet\" href=\"assets/css/gyd_pos_documentos.css\"></head><body>",
+      "new": "<link rel=\"stylesheet\" href=\"assets/css/gyd_pos_documentos.css\"><link rel=\"stylesheet\" href=\"assets/css/gyd_apertura_caja_modal.css?v=20261114\"></head><body>"
+    },
+    {
+      "old": "<div class=\"modal\" id=\"modal\" hidden><div class=\"dialog\">",
+      "new": "<div class=\"modal\" id=\"modal\" hidden role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"tituloDialog\"><div class=\"dialog\">"
+    }
+  ],
+  "public/assets/js/pos_gyd.js": [
+    {
+      "old": " const habilitar=action==='abrir';\n $('gyd-apertura-datos').hidden=!habilitar;",
+      "new": " const habilitar=action==='abrir';\n $('modal').classList.toggle('gyd-apertura-modal',habilitar);\n const etiquetaMonto=$('campoDialog').firstChild;if(etiquetaMonto&&etiquetaMonto.nodeType===3)etiquetaMonto.textContent=habilitar?'Fondo inicial ($)':'Monto ($)';\n $('gyd-apertura-datos').hidden=!habilitar;"
+    }
+  ]
+}

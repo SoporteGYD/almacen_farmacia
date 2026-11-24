@@ -1,0 +1,17 @@
+{
+    "helper": {
+        "creado": true,
+        "hash_original": null,
+        "sha_instalado": "7c5ed2906256a586d265fd45b676682a4916e279f55bfdcfb915f5ee8c29a2b6"
+    },
+    "page": {
+        "creado": true,
+        "hash_original": null,
+        "sha_instalado": "93e3bcbff2e26b8263cc82fd30f1e6004e7182c8d42fe01e87d1eaa2a69a6628"
+    },
+    "kardex": {
+        "creado": false,
+        "hash_original": "88cb31a70a751b79be491feb3e67ed6a36c1f13aba66d205d1d2d5909dc2d81d",
+        "sha_instalado": "037175906c26ca8402ce0651e5cb16c635114cb0a62cfd1947893a0cfe594901"
+    }
+}

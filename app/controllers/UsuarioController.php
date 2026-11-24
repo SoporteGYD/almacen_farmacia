@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../models/Usuario.php';
+require_once __DIR__ . '/../models/AsignacionPos.php';
 require_once __DIR__ . '/../models/Movimiento.php';
 require_once __DIR__ . '/../helpers/audit.php';
 
@@ -42,6 +43,8 @@ class UsuarioController
         return $this->movimientoModel->getAlmacenes();
     }
 
+    public function posOpciones(): array { return (new AsignacionPos())->opciones(); }
+
     public function guardar(array $data): array
     {
         if (!$this->esAdmin()) {
@@ -64,6 +67,9 @@ class UsuarioController
             'CONSULTA',
             'GERENTE',
             'JEFE_ALMACEN',
+            'CAJERO',
+            'COMPRAS',
+            'DIRECCION',
         ];
 
         if ($nombre === '' || $usuario === '' || $correo === '' || $password === '') {
@@ -80,17 +86,24 @@ class UsuarioController
             ];
         }
 
-        if ($rol !== 'ADMINISTRADOR' && empty($almacenId)) {
+        if ($rol !== 'ADMINISTRADOR' && $rol !== 'CAJERO' && $rol !== 'COMPRAS' && $rol !== 'CONTABILIDAD' && $rol !== 'DIRECCION' && empty($almacenId)) {
             return [
                 'success' => false,
                 'message' => 'Debes asignar un almacén al usuario.'
             ];
         }
 
-        if ($rol === 'ADMINISTRADOR') {
+        if ($rol === 'ADMINISTRADOR' || $rol === 'CAJERO' || $rol === 'COMPRAS' || $rol === 'CONTABILIDAD' || $rol === 'DIRECCION') {
             $almacenId = null;
         }
 
+        if($rol==='CAJERO') {
+            try { AsignacionPos::normalizarNumero((string)($data['pos_numero_caja']??'')); }
+            catch(Throwable $e) { return ['success'=>false,'message'=>$e->getMessage()]; }
+            $sucursal=(int)($data['pos_sucursal_id']??0);
+            if($sucursal<1 || !in_array($sucursal,array_map('intval',array_column((new AsignacionPos())->opciones(),'sucursal_id')),true))
+                return ['success'=>false,'message'=>'Selecciona una sucursal POS activa.'];
+        }
         $ok = $this->usuarioModel->create([
             'nombre' => $nombre,
             'usuario' => $usuario,
@@ -101,6 +114,11 @@ class UsuarioController
             'estado' => 1,
         ]);
 
+        if ($ok && $rol==='CAJERO') {
+            $creado=$this->usuarioModel->findByUsuarioOrCorreo($usuario);
+            try { (new AsignacionPos())->guardarPorNumero((int)($creado['id']??0),(int)$data['pos_sucursal_id'],(string)$data['pos_numero_caja']); }
+            catch(Throwable $e){ return ['success'=>false,'message'=>'Usuario creado, pero no se asignó la caja: '.$e->getMessage()]; }
+        }
         if ($ok) {
             $usuarioCreado =
                 $this->usuarioModel->findByUsuarioOrCorreo(
@@ -242,6 +260,10 @@ class UsuarioController
         'CONSULTA',
         'GERENTE',
         'JEFE_ALMACEN',
+        'CAJERO',
+        'COMPRAS',
+        'CONTABILIDAD',
+        'DIRECCION',
     ];
 
     if ($id <= 0 || $nombre === '' || $usuario === '' || $correo === '') {
@@ -258,17 +280,24 @@ class UsuarioController
         ];
     }
 
-    if ($rol !== 'ADMINISTRADOR' && empty($almacenId)) {
+    if ($rol !== 'ADMINISTRADOR' && $rol !== 'CAJERO' && $rol !== 'COMPRAS' && $rol !== 'CONTABILIDAD' && $rol !== 'DIRECCION' && empty($almacenId)) {
         return [
             'success' => false,
             'message' => 'Debes asignar un almacén al usuario.'
         ];
     }
 
-    if ($rol === 'ADMINISTRADOR') {
+    if ($rol === 'ADMINISTRADOR' || $rol === 'CAJERO' || $rol === 'COMPRAS' || $rol === 'CONTABILIDAD' || $rol === 'DIRECCION') {
         $almacenId = null;
     }
 
+    if($rol==='CAJERO') {
+        try { AsignacionPos::normalizarNumero((string)($data['pos_numero_caja']??'')); }
+        catch(Throwable $e) {return ['success'=>false,'message'=>$e->getMessage()];}
+        $sucursal=(int)($data['pos_sucursal_id']??0);
+        if($sucursal<1 || !in_array($sucursal,array_map('intval',array_column((new AsignacionPos())->opciones(),'sucursal_id')),true))
+            return ['success'=>false,'message'=>'Selecciona una sucursal POS activa.'];
+    }
     $usuarioAnterior = $this->usuarioModel->findById($id);
 
     $ok = $this->usuarioModel->update($id, [
@@ -280,6 +309,10 @@ class UsuarioController
     ]);
 
     if ($ok) {
+        try {
+            if($rol==='CAJERO') (new AsignacionPos())->guardarPorNumero($id,(int)$data['pos_sucursal_id'],(string)$data['pos_numero_caja']);
+            else (new AsignacionPos())->eliminar($id);
+        } catch(Throwable $e) {return ['success'=>false,'message'=>'Error de asignación POS: '.$e->getMessage()];}
         $usuarioNuevo = $this->usuarioModel->findById($id);
         $changes = auditChangedValues(
             $usuarioAnterior ?? [],

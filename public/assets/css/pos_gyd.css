@@ -1,0 +1,190 @@
+:root{font-family:system-ui,Segoe UI,Arial,sans-serif;color:#132743;background:#edf2f8}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;border:0;border-radius:9px;padding:12px 16px;font-weight:700;background:#175ccf;color:white}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#e1e9f5;color:#102844}.bar{background:#153b63;color:white;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;gap:12px}.brand{display:flex;align-items:center;gap:12px}.brand img{height:42px;max-width:55px;object-fit:contain;background:white;border-radius:6px}.brand strong{display:block;font-size:19px}.brand small{display:block;opacity:.9}.actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px}.actions a{color:white}.app{max-width:1500px;margin:20px auto;padding:0 16px}.notice{border:1px solid #e6bb70;background:#fff7df;padding:12px;border-radius:12px;margin-bottom:16px;font-size:13px}.headrow{display:flex;gap:14px;align-items:center;justify-content:space-between;background:white;padding:16px;border-radius:14px;margin-bottom:18px;flex-wrap:wrap}.headrow label{font-size:13px;font-weight:700}.headrow select{display:block;min-width:280px;margin-top:4px}.status{font-size:13px;color:#164374;font-weight:800}.headbuttons{display:flex;gap:6px}.columns{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,.8fr);gap:18px;align-items:start}.panel{background:white;border-radius:16px;padding:20px;box-shadow:0 7px 22px #102d4912;margin-bottom:18px}.panel h2{font-size:18px;color:#124378;margin:0 0 16px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.panel h2 small{font-size:12px;color:#6b7c8b;font-weight:400}.find{display:flex;gap:8px;margin-bottom:13px}input,select{border:1px solid #c5d3e3;background:white;border-radius:9px;padding:11px;min-width:0}.find input{flex:1}.resultados{max-height:275px;overflow:auto;min-height:65px;background:#f4f7fa;border:1px solid #e0e6f0;border-radius:12px;margin-bottom:20px;padding:7px;color:#667}.product{display:flex;justify-content:space-between;align-items:center;gap:8px;background:white;color:#132743;border:1px solid #e2e8f0;width:100%;text-align:left;margin:4px 0}.product b{display:block}.product small{display:block;font-size:12px;color:#69778a}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px;min-width:500px}th{background:#15598f;color:white;text-align:left;padding:10px}td{padding:10px;border-bottom:1px solid #d9e3f0}td small{display:block;color:#7b8b9a}.sm{font-size:12px;padding:3px 8px}.danger{background:#d83242}.grand{display:flex;justify-content:space-between;align-items:center;background:#eaf2ff;border-radius:12px;padding:17px;margin-bottom:18px}.grand strong{font-size:26px;color:#0855ab}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.formgrid label{font-size:12px;font-weight:700}.formgrid input{width:100%;margin-top:6px}.check{display:flex;align-items:flex-start;gap:7px;font-size:12px;margin:16px 0}.check input{margin:2px 0}.totales{display:grid;grid-template-columns:1fr auto;gap:10px;margin:15px 0}.primary{background:#1055c5;width:100%;font-size:16px;padding:15px}.small{font-size:11px;margin-top:12px;color:#68798b}.modal{position:fixed;inset:0;background:#15273c9c;display:flex;align-items:center;justify-content:center;padding:20px;z-index:4}.modal[hidden],#toast[hidden]{display:none}.dialog{background:white;max-width:430px;width:100%;padding:24px;border-radius:16px}.dialog input{display:block;width:100%;margin-top:6px}.dialogActions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}#toast{position:fixed;bottom:22px;right:20px;background:#176843;color:white;padding:16px 22px;border-radius:12px;z-index:5;box-shadow:0 10px 32px #0005;max-width:490px}#toast.bad{background:#b32632}@media(max-width:900px){.columns{grid-template-columns:1fr}.bar{flex-direction:column;align-items:flex-start}.formgrid{grid-template-columns:1fr 1fr}}@media(max-width:500px){.panel{padding:12px}.formgrid{grid-template-columns:1fr}.headrow select{min-width:unset;width:100%}.headrow label{width:100%}}
+
+/* POS: evitar select colapsado cuando todavia no hay cajas */
+.pos-caja-label{display:block;max-width:520px;font-size:14px;font-weight:700;color:#143b63}
+.pos-caja-label select{display:block;width:100%;min-width:260px;margin-top:9px}
+.pos-warning{margin-bottom:16px;line-height:1.75;border-color:#d8a441}
+.pos-error-inline{background:#fff2f2;color:#a32232;padding:12px;margin-top:10px;border-radius:9px;border:1px solid #efc2c2}
+.pos-error-inline[hidden]{display:none}
+@media(max-width:500px){.pos-caja-label select{min-width:0}}
+
+
+/* ===== Cobro simplificado, accesible y adaptable ===== */
+.pay .grand.pay-grand{border-radius:14px;padding:20px 18px;background:#e8f0fd;margin-bottom:18px}
+.pay .grand.pay-grand span{font-size:12px;font-weight:800;letter-spacing:.035em;color:#244a71}
+.pay .grand.pay-grand strong{font-size:clamp(26px,2.4vw,34px);font-variant-numeric:tabular-nums}
+.pay-methods{border:0;padding:0;margin:0 0 15px;min-width:0}
+.pay-methods legend{font-size:13px;font-weight:800;color:#14385e;padding:0;margin:0 0 9px}
+.pay-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pay-option{border:1.5px solid #d0dcec;border-radius:11px;padding:12px 8px;display:flex;align-items:center;justify-content:center;gap:6px;text-align:center;background:white;font-size:13px;font-weight:700;color:#243b55;cursor:pointer;min-height:46px}
+.pay-option:has(input:checked){border-color:#1760c5;background:#eaf2ff;color:#064c9a;box-shadow:0 0 0 1px #1760c5}
+.pay-option:focus-within{outline:2px solid #598dec;outline-offset:2px}
+.pay-option input{margin:0;accent-color:#175ccf;width:15px;height:15px;flex:none}
+.pay .payment-details{margin-top:13px;min-width:0}
+.pay .payment-details[hidden],.pay .pay-check[hidden]{display:none!important}
+.pay-field-label,.pay .pay-two-fields label{display:block;font-size:13px;font-weight:750;color:#193a60;margin-bottom:6px}
+.pay .payment-details input:not([type=hidden]){display:block;width:100%;height:46px;margin-top:7px;border-color:#bbcfe6}
+.pay .payment-details input:focus{border-color:#145bc4;outline:2px solid #a6c8ff;outline-offset:0}
+.pay .payment-details input.pay-large-input{font-size:21px;font-weight:750;color:#164f9d;font-variant-numeric:tabular-nums;height:53px}
+.pay .pay-quick{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.pay .pay-quick button{font-size:12px;border:1px solid #c9d7e9;border-radius:22px;padding:7px 11px;color:#164b87;background:#edf4ff;font-weight:700}
+.pay .pay-quick button:hover{background:#daeaff}
+.pay .pay-subtext{font-size:12px;color:#6b7d8e;line-height:1.4;margin:8px 0 0}
+.pay .pay-mixed-intro{margin:0 0 12px}
+.pay .pay-two-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.pay .pay-cash-due{background:#f3f7fc;border:1px solid #e3eaf5;border-radius:9px;padding:11px;display:flex;justify-content:space-between;align-items:center;gap:9px;margin-top:12px;font-size:12px}
+.pay .pay-cash-due strong{font-size:18px;color:#134b91;font-variant-numeric:tabular-nums}
+.pay .pay-single-digital{display:block;padding:12px 14px;border-radius:10px;background:#f0f5ff;font-size:23px;color:#1154a1;font-variant-numeric:tabular-nums}
+.pay .pay-check{background:#f2f7ff;border:1px solid #d4e3ff;padding:12px;border-radius:11px;margin:15px 0;font-size:12px;line-height:1.5}
+.pay .pay-check input{flex:none;accent-color:#145bc5;min-width:16px;width:16px;height:16px}
+.pay .pay-summary{border-top:1px solid #e2e9f1;margin:17px 0 9px;padding-top:13px}
+.pay .pay-summary>div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;font-size:13px;color:#52697f}
+.pay .pay-summary>div strong{font-size:16px;color:#15395d;font-variant-numeric:tabular-nums}
+.pay .pay-summary>.pay-change{padding:13px 11px;background:#e8f7ef;border-radius:10px;color:#155e3e;font-size:12px;font-weight:800;margin-top:6px}
+.pay .pay-summary>.pay-change strong{font-size:23px;color:#09643b}
+.pay .pay-hint{margin:8px 0 12px;font-size:12px;line-height:1.5;color:#63798d}
+.pay .pay-hint.ok{color:#13704c;font-weight:700}
+.pay .pay-hint.error{color:#ae2333;font-weight:700}
+.pay button#cobrar:disabled{opacity:.54}
+@media(max-width:430px){.pay .pay-two-fields{grid-template-columns:1fr}.pay .pay-option{padding:10px 5px;font-size:12px}}
+
+/* Mayoreo + consulta rápida: modales protegidos por la sesión POS */
+.catalog-overlay,.special-overlay{z-index:8}
+.catalog-dialog{width:min(940px,96vw);height:min(86vh,790px);display:flex;flex-direction:column;background:#fff;border-radius:17px;padding:20px;box-shadow:0 16px 60px #102d4955}
+.catalog-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.catalog-header h2{margin:0 0 12px;color:#114679;font-size:19px}
+.catalog-search{margin-bottom:5px}
+.catalog-toggle{display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 0}
+.catalog-toggle input{flex:none;accent-color:#145bc5}
+.catalog-meta{font-size:12px;color:#58708d;padding:6px 0}
+.catalog-results{flex:1;overflow-y:auto;min-height:120px;border:1px solid #d9e2ef;border-radius:12px;padding:6px}
+.catalog-results .product{padding:10px 12px}
+.catalog-results .product:disabled,.resultados .product:disabled{opacity:.72;background:#f8f8fa}
+.catalog-pager{display:flex;justify-content:center;align-items:center;gap:18px;padding:12px 0}
+.catalog-pager span{font-size:13px;font-weight:700;color:#18436c}
+.catalog-dialog .small{margin:0}
+.cart-qty{width:85px;max-width:85px;padding:6px 7px;text-align:center;border-radius:7px;font-weight:700}
+.cart-price{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.cart-price .tier{font-size:11px;border-radius:6px;background:#e3f4e9;color:#126443;padding:2px 5px;font-weight:700}
+.cart-price .tier.manual{background:#fff1d9;color:#784a0a}
+.cart-price .strike{color:#728299;text-decoration:line-through;font-size:11px}
+.cart-price .price-edit{padding:4px 7px;font-size:11px;color:#0c4b8d;background:#e5efff;border:1px solid #b6cdf7}
+.cart-price .price-edit:hover{background:#d8e6ff}
+.print-preference{display:flex;gap:8px;align-items:center;font-size:12px;margin:13px 0;color:#244768}
+.print-preference input{accent-color:#1658b8}
+.catalog-opened{overflow:hidden}
+@media(max-width:630px){.catalog-dialog{width:100%;height:95vh;padding:11px}.catalog-header{align-items:flex-start}.catalog-search{flex-wrap:wrap}.catalog-search input{flex-basis:100%}.catalog-header h2{font-size:16px}}
+
+/* Hidalgo: responsable del traslado y guía de atajos */
+.delivery-person{margin:2px 0 16px;padding:12px;border:1px solid #d5e3f2;background:#f7faff;border-radius:11px}
+.delivery-person label{display:block;font-size:13px;font-weight:750;color:#193a60;margin:0 0 7px}
+.delivery-person input{width:100%;min-width:0;max-width:100%;padding:12px;border:1px solid #c4d3e9;border-radius:9px;font:inherit}
+.delivery-person input:focus{border-color:#145bc4;outline:2px solid #a6c8ff}
+.delivery-person small{display:block;font-size:12px;margin-top:7px;color:#54708d;line-height:1.5}
+#lleva_required{color:#a12831;font-weight:900}
+.keyboard-hints{margin:9px 0;font-size:12px;line-height:1.6;color:#435d78;background:#f3f7fd;padding:9px 12px;border-radius:9px}
+.keyboard-hints b{color:#1c4f93}
+
+
+/* ==========================================================
+   G&D — terminal de caja a pantalla completa (escritorio)
+   Solo cambia la presentación. Mantiene API / lógica de venta.
+   ========================================================== */
+:root{--pos-navy:#143a65;--pos-blue:#0e57a8;--pos-red:#dc2029}
+body{background:#e9eff7}
+.bar{height:58px;min-height:58px;padding:6px 16px;border-bottom:3px solid #d51d2b;gap:10px}
+.brand img{height:43px;width:56px;max-width:56px;object-fit:contain;background:white}
+.brand strong{font-size:18px}.brand small{font-size:11px}
+.actions{flex-wrap:nowrap;white-space:nowrap;gap:13px;font-size:12px}
+.app{max-width:none;margin:0;padding:8px 10px 0}
+.notice{display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:7px;padding:5px 12px;margin:0 0 7px;min-height:28px;font-size:11px}
+.notice strong{color:#895307}
+.headrow{min-height:61px;padding:7px 14px;border-radius:9px;margin:0 0 8px;flex-wrap:nowrap;gap:10px}
+.headrow label{display:flex;align-items:center;gap:12px}.headrow select{margin-top:0;min-width:240px;max-width:380px;padding:8px;font-size:12px}
+.headbuttons button{padding:9px 11px;font-size:12px}.status{font-size:12px}
+.columns{grid-template-columns:minmax(0,1.65fr) minmax(340px,.8fr);gap:9px;align-items:stretch}
+.panel{padding:10px 12px;border-radius:10px;margin:0;box-shadow:0 2px 8px #102d4916}
+.panel h2{font-size:15px;margin:0 0 7px;align-items:center}.panel h2 small{font-size:11px}
+.sales-panel{display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.find{margin-bottom:7px}.find input{height:42px}.find button{padding:8px 12px;font-size:12px}
+.resultados{min-height:0;max-height:75px;height:75px;overflow:auto;margin-bottom:7px;border-radius:8px;padding:4px;font-size:12px}
+.resultados .product{padding:6px 10px;margin:2px 0;font-size:12px}
+.sales-panel .detail-title{margin:3px 0 6px}
+.sales-panel .cart-scroll{min-height:130px;flex:1;overflow:auto;border:1px solid #d7e0ec;border-radius:7px}
+.sales-panel table{min-width:550px;font-size:12px}.sales-panel th{position:sticky;top:0;z-index:1;padding:8px}.sales-panel td{padding:6px 8px}
+.history-inline{flex:0 0 122px;min-height:0;display:flex;flex-direction:column;border-top:1px solid #dce5ed;margin-top:7px;padding-top:7px}
+.history-inline h2{font-size:12px;margin-bottom:5px}
+.history-scroll{flex:1;overflow:auto;border:1px solid #e2e9f2;border-radius:6px}
+.history-scroll table{font-size:11px}.history-scroll th,.history-scroll td{padding:5px 7px}
+.pay{display:flex;flex-direction:column;overflow-y:auto;min-height:0;min-width:0}
+.pay h2{flex-shrink:0}.pay .grand.pay-grand{padding:9px 12px;margin-bottom:8px;border-radius:8px}
+.pay .grand.pay-grand strong{font-size:29px}
+.delivery-person{margin:0 0 7px;padding:7px 9px;border-radius:8px}.delivery-person label{font-size:11px;margin-bottom:4px}.delivery-person input{padding:8px;height:36px}.delivery-person small{display:none}
+.pay-methods{margin:0 0 6px}.pay-methods legend{font-size:11px;margin-bottom:5px}
+.pay-options{gap:5px}.pay-option{min-height:35px;padding:6px 4px;border-radius:7px;font-size:11px}
+.pay .payment-details{margin-top:6px}.pay-field-label,.pay .pay-two-fields label{font-size:11px;margin-bottom:3px}
+.pay .payment-details input:not([type=hidden]){height:33px;padding:6px 8px;margin-top:4px;font-size:12px}
+.pay .payment-details input.pay-large-input{height:39px;font-size:18px}
+.pay .pay-quick{gap:4px;margin-top:5px}.pay .pay-quick button{padding:4px 8px;font-size:10px}
+.pay .pay-subtext{font-size:10px;margin:4px 0 0}
+.pay .pay-summary{margin:8px 0 5px;padding-top:5px}.pay .pay-summary>div{font-size:11px;padding:3px 0}.pay .pay-summary>div strong{font-size:13px}
+.pay .pay-summary>.pay-change{padding:7px 9px;margin-top:3px}.pay .pay-summary>.pay-change strong{font-size:19px}
+.pay .pay-hint{margin:3px 0 5px;font-size:11px}.pay .primary{padding:10px;font-size:13px}
+.keyboard-hints{font-size:10px;margin:5px 0;padding:5px 7px;line-height:1.3}
+.print-preference{margin:5px 0;font-size:10px}.pay>.small{display:none}
+.pos-bottom-bar{height:37px;display:flex;gap:22px;align-items:center;padding:5px 14px;background:#153b63;color:white;border-radius:7px 7px 0 0;font-size:11px;white-space:nowrap}
+.pos-bottom-bar>div:last-child{margin-left:auto}.pos-bottom-bar strong{font-size:14px;color:#fff}
+@media(min-width:1000px) and (min-height:620px){html,body{height:100%;overflow:hidden}.app{height:calc(100dvh - 58px);display:flex;flex-direction:column;overflow:hidden}.columns{flex:1;min-height:0;overflow:hidden}.pos-bottom-bar{flex-shrink:0;margin-top:7px}.notice,.headrow{flex-shrink:0}}
+@media(min-width:1000px) and (max-height:750px){.history-inline{flex-basis:89px}.resultados{height:53px;max-height:53px}.bar{height:51px;min-height:51px}.app{height:calc(100dvh - 51px)}.notice{min-height:23px}.headrow{min-height:52px}.pay>.keyboard-hints{display:none}}
+@media(max-width:999px), (max-height:619px){body{overflow:auto}.columns{grid-template-columns:1fr}.pay{max-height:none}.sales-panel{min-height:460px}.pos-bottom-bar{flex-wrap:wrap;height:auto;white-space:normal}.notice{flex-wrap:wrap}.actions{flex-wrap:wrap}.headrow{flex-wrap:wrap}}
+
+/* Disponibilidad POS por farmacia en las búsquedas */
+.stocks-multi{display:flex!important;flex-wrap:wrap;gap:5px;margin-top:5px;}
+.stock-branch{background:#edf4ff;border:1px solid #c8d9ef;border-radius:6px;padding:3px 7px;font-size:11px;color:#163b64;white-space:nowrap;}
+.stock-branch.current{background:#d4f6e3;border-color:#23935c;color:#075a36;font-weight:700;}
+
+/* Selector tarjeta: radios compactos, etiquetas completas, sin desbordes. */
+#pay_card_type_box .pay-options {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  width:100%;
+}
+#pay_card_type_box .pay-option {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-width:0;
+  min-height:50px;
+  padding:10px 8px;
+  line-height:1.3;
+  text-align:center;
+  white-space:normal;
+}
+#pay_card_type_box .pay-option input[type="radio"] {
+  display:inline-block;
+  flex:0 0 18px;
+  width:18px;
+  min-width:18px;
+  height:18px;
+  margin:0;
+  padding:0;
+  vertical-align:middle;
+  box-sizing:border-box;
+}
+#pay_card_type_box .pay-option span {
+  display:inline-block;
+  flex:0 1 auto;
+  min-width:0;
+  max-width:100%;
+  overflow:visible;
+  white-space:normal;
+  overflow-wrap:break-word;
+  font-size:13px;
+  font-weight:700;
+}
+@media (max-width:400px) {
+  #pay_card_type_box .pay-options { grid-template-columns:1fr; }
+  #pay_card_type_box .pay-option { justify-content:flex-start; padding:10px 14px; }
+}

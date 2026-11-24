@@ -1,0 +1,15 @@
+{
+    "folder": "C:\\xampp\\htdocs\\almacen-farmacia2/backups/perfil_cajero_20261113_184827_c6e7b2",
+    "before": {
+        "app/helpers/auth.php": "a0121f54924e2edb6c94df1044cd62c3d7a18ea21982ae469c0acc56064e8146",
+        "public/pos.php": "eac720a512edfc2c2b605b9af24c4f8e35a112dbb11c37f8ccfc9888b2f17314",
+        "public/pos_api.php": "695099ff26b77a7b710403e80e73ccd9921fdc06b0d120cd08e829df93dc0ec1",
+        "public/gyd_clientes.php": "5205839b5de169a9dcdffefee9a2e006678123b494719f237c84b824f3da8e53"
+    },
+    "after": {
+        "app/helpers/auth.php": "5bc81cc3f341776ac5d820a3b5711790747771e13c64ae980f0e8577ebafe93c",
+        "public/pos.php": "1c2f68d127e9240c8f714c6ed03557590b8ec4df8a876cfdd0691181ff5022dd",
+        "public/pos_api.php": "92f1d139f949d4383480ed39a3578772d466229e35abebe92cb7bdadf527367b",
+        "public/gyd_clientes.php": "e3106b43e54a14843e99f40161012fcae4738ffad4b714e329970be846cec4b6"
+    }
+}

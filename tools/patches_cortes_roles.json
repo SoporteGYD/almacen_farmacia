@@ -1,0 +1,128 @@
+[
+  {
+    "file": "app/models/PuntoVenta.php",
+    "old": "$this->cajaAutorizada($u,$caja);$n=self::cents($contado);",
+    "new": "gyd_corte_exigir($u);gyd_corte_caja_permitida($this->db,$u,$caja);$n=self::cents($contado);",
+    "count": 1
+  },
+  {
+    "file": "app/models/PuntoVenta.php",
+    "old": "if(($u['rol']??'')!=='ADMINISTRADOR'&&(int)$turno['usuario_apertura_id']!==(int)$u['id']) throw new DomainException('Solo quien abrió la caja puede cerrarla.');",
+    "new": "if ((int)$autorizacion['id'] !== (int)$u['id']) throw new DomainException('El corte debe ser autorizado por la propia cuenta que inició sesión.');\n            $rolActual=$this->q('SELECT rol,estado FROM usuarios WHERE id=? FOR UPDATE',[(int)$u['id']])->fetch(PDO::FETCH_ASSOC);\n            if (!$rolActual || (int)$rolActual['estado']!==1 || !gyd_corte_permitido($rolActual['rol']) || gyd_corte_rol($rolActual['rol'])!==gyd_corte_rol($u['rol_original']??$u['rol']??'')) throw new DomainException('Tu cuenta ya no tiene permisos para efectuar el corte.');",
+    "count": 1
+  },
+  {
+    "file": "app/models/PuntoVenta.php",
+    "old": "[(int)$turno['id'],(int)$u['id'],(int)$autorizacion['id'],$autorizacion['rol'],$autorizacion['modo'],$resultadoCorte['tipo'],$resultadoCorte['importe']]",
+    "new": "[(int)$turno['id'],(int)$turno['usuario_apertura_id'],(int)$autorizacion['id'],$autorizacion['rol'],$autorizacion['modo'],$resultadoCorte['tipo'],$resultadoCorte['importe']]",
+    "count": 1
+  },
+  {
+    "file": "app/models/PuntoVenta.php",
+    "old": "'CORTE_CAJA_AUTORIZADO',['turno'=>(int)$turno['id'],'autoriza'=>(int)$autorizacion['id']",
+    "new": "'CORTE_CAJA_AUTORIZADO',['turno'=>(int)$turno['id'],'cajero_apertura_id'=>(int)$turno['usuario_apertura_id'],'usuario_cierre_id'=>(int)$u['id'],'autoriza'=>(int)$autorizacion['id']",
+    "count": 1
+  },
+  {
+    "file": "public/pos_api.php",
+    "old": "$model->cajaAutorizada($u,$caja);\n                $turno=$model->turno($caja);",
+    "new": "if ($operacion==='corte') {\n                    if (!gyd_corte_permitido($u['rol_original']??$u['rol']??'')) { http_response_code(403); throw new DomainException('Este perfil no puede realizar cortes.'); }\n                    $dbCorte=(new Database())->connect();gyd_corte_caja_permitida($dbCorte,$u,$caja);\n                } else { $model->cajaAutorizada($u,$caja); }\n                $turno=$model->turno($caja);",
+    "count": 1
+  },
+  {
+    "file": "public/pos_api.php",
+    "old": "case 'cerrar':$out=$model->cerrarTurno($u,$caja,",
+    "new": "case 'cerrar':\n                if (!gyd_corte_permitido($u['rol_original']??$u['rol']??'')) {http_response_code(403);throw new DomainException('Solo Gerencia, Dirección, Contabilidad o Administración puede hacer cortes.');}\n                $out=$model->cerrarTurno($u,$caja,",
+    "count": 1
+  },
+  {
+    "file": "public/pos.php",
+    "old": "require_once __DIR__.'/../app/helpers/gyd_arqueos.php';",
+    "new": "require_once __DIR__.'/../app/helpers/gyd_arqueos.php';\nrequire_once __DIR__.'/../app/helpers/gyd_cortes_autorizados.php';",
+    "count": 1
+  },
+  {
+    "file": "public/pos.php",
+    "old": "<button id=\"cerrar\" class=\"secondary\">Corte</button>",
+    "new": "<button id=\"cerrar\" class=\"secondary\" <?=gyd_corte_permitido($u['rol_original']??$u['rol']??'')?'':'hidden aria-hidden=\"true\" style=\"display:none!important\"'?>>Corte</button>",
+    "count": 1
+  },
+  {
+    "file": "public/pos.php",
+    "old": "<a class=\"gyd-retiro-btn\" href=\"pos_corte_retiros.php\">🧾 Corte y tickets de retiros</a>",
+    "new": "<?php if(gyd_corte_permitido($u['rol_original']??$u['rol']??'')):?><a class=\"gyd-retiro-btn\" href=\"gyd_cortes_caja.php\">🧾 Cortes de caja</a><?php endif;?>",
+    "count": 1
+  },
+  {
+    "file": "public/pos_corte_retiros.php",
+    "old": "requireLogin();$u=currentUser()?:[];$uid=(int)($u['id']??0);if($uid<1){http_response_code(403);exit('No autorizado.');}",
+    "new": "requireLogin();require_once __DIR__.'/../app/helpers/gyd_cortes_autorizados.php';$u=currentUser()?:[];$uid=(int)($u['id']??0);if($uid<1 || !gyd_corte_permitido($u['rol_original']??$u['rol']??'')){http_response_code(403);exit('Solo los perfiles autorizados pueden consultar cortes.');}",
+    "count": 1
+  },
+  {
+    "file": "public/pos_corte_retiros.php",
+    "old": "if($turnoId<1){$turnoId=(int)gr_query($db,gr_admin($u)?'SELECT id FROM pos_turnos ORDER BY id DESC LIMIT 1':'SELECT id FROM pos_turnos WHERE usuario_apertura_id=? ORDER BY id DESC LIMIT 1',gr_admin($u)?[]:[$uid])->fetchColumn();}",
+    "new": "if($turnoId<1){$turnoId=(int)gr_query($db,'SELECT id FROM pos_turnos ORDER BY id DESC LIMIT 1')->fetchColumn();}",
+    "count": 1
+  },
+  {
+    "file": "public/pos_corte_retiros.php",
+    "old": "gr_permission_caja($db,$u,(int)$t['caja_id']);if(!gd_can_operate($u,$t))throw new DomainException('No puedes revisar un turno de otro cajero.');",
+    "new": "gyd_corte_caja_permitida($db,$u,(int)$t['caja_id']);",
+    "count": 1
+  },
+  {
+    "file": "public/pos_corte_retiros.php",
+    "old": "Autorizó Gerencia / Dueños / Administración:",
+    "new": "Autorizó Gerencia / Dirección / Contabilidad / Administración:",
+    "count": 1
+  },
+  {
+    "file": "public/erp_cortes_boveda.php",
+    "old": "requireLogin();$u=currentUser()?:[];if(!gr_admin($u)){http_response_code(403);exit('Acceso exclusivo de Administración/Dirección.');}",
+    "new": "requireLogin();require_once __DIR__.'/../app/helpers/gyd_cortes_autorizados.php';$u=currentUser()?:[];if(!gyd_corte_permitido($u['rol_original']??$u['rol']??'')){http_response_code(403);exit('Acceso exclusivo de Gerencia, Dirección, Contabilidad o Administración.');}",
+    "count": 1
+  },
+  {
+    "file": "app/controllers/UsuarioController.php",
+    "old": "        'COMPRAS',\n        'DIRECCION',",
+    "new": "        'COMPRAS',\n        'CONTABILIDAD',\n        'DIRECCION',",
+    "count": 1
+  },
+  {
+    "file": "app/controllers/UsuarioController.php",
+    "old": "$rol !== 'COMPRAS' && $rol !== 'DIRECCION'",
+    "new": "$rol !== 'COMPRAS' && $rol !== 'CONTABILIDAD' && $rol !== 'DIRECCION'",
+    "count": 2
+  },
+  {
+    "file": "app/controllers/UsuarioController.php",
+    "old": "$rol === 'COMPRAS' || $rol === 'DIRECCION'",
+    "new": "$rol === 'COMPRAS' || $rol === 'CONTABILIDAD' || $rol === 'DIRECCION'",
+    "count": 2
+  },
+  {
+    "file": "public/usuario.php",
+    "old": "<option value=\"COMPRAS\">COMPRAS (ERP)</option>",
+    "new": "<option value=\"COMPRAS\">COMPRAS (ERP)</option>\n    <option value=\"CONTABILIDAD\">CONTABILIDAD (CORTES DE CAJA)</option>",
+    "count": 2
+  },
+  {
+    "file": "public/usuario.php",
+    "old": "['CAJERO','COMPRAS','DIRECCION','ADMINISTRADOR']",
+    "new": "['CAJERO','COMPRAS','CONTABILIDAD','DIRECCION','ADMINISTRADOR']",
+    "count": 1
+  },
+  {
+    "file": "app/helpers/auth.php",
+    "old": "    if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'COMPRAS') {return 'erp_compras_inicio.php';}",
+    "new": "    if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'COMPRAS') {return 'erp_compras_inicio.php';}\n    if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'CONTABILIDAD') {return 'gyd_cortes_caja.php';}",
+    "count": 1
+  },
+  {
+    "file": "app/helpers/auth.php",
+    "old": "    aplicarPermisosDireccion();\n\n    $_SESSION['ultimo_acceso'] = time();",
+    "new": "    aplicarPermisosDireccion();\n\n    // CONTABILIDAD solo consulta y realiza cortes con autorización personal.\n    if (strtoupper(trim((string)(currentUser()['rol_original'] ?? currentUser()['rol'] ?? ''))) === 'CONTABILIDAD') {\n        $archivoContable=basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));\n        if (!in_array($archivoContable,['gyd_cortes_caja.php','pos_corte_retiros.php','erp_cortes_boveda.php','logout.php','session_keepalive.php'],true)) {\n            http_response_code(403);exit('La cuenta de Contabilidad solo puede acceder a los cortes de caja autorizados.');\n        }\n    }\n    $_SESSION['ultimo_acceso'] = time();",
+    "count": 2
+  }
+]

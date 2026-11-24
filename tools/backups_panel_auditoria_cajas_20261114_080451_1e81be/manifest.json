@@ -1,0 +1,18 @@
+{
+    "app/helpers/gyd_panel_cajas.php": {
+        "existia": false,
+        "hash_nuevo": "3a34ece7baec698a3cd017b42943ae4f260de889d3ce221df252faececbd5b1a"
+    },
+    "public/gyd_panel_cajas.php": {
+        "existia": false,
+        "hash_nuevo": "649a1afff3d596f4f42ae85afbc1d5d56c7071f19e1985c7c9a8f1dd4ffa0353"
+    },
+    "public/assets/css/gyd_panel_cajas.css": {
+        "existia": false,
+        "hash_nuevo": "8e2e2cb972375712b7f19c7d340e0a1c17be003677df7c520f02bb6e5b979eef"
+    },
+    "public/pos.php": {
+        "existia": true,
+        "hash_nuevo": "eb48d2d4253e6845fce0a8878584228c767e0bd6a4bc7f3659c099e7d874bf29"
+    }
+}

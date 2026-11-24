@@ -1,0 +1,30 @@
+{
+    "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools/backups_ticket_misma_pestana/20261114_222632_8673b000",
+    "files": [
+        {
+            "name": "public/pos_retiros.php",
+            "existed": true,
+            "updated_hash": "a13dea977d8cca765c24f9ab33d2c8ae491aaceae58fde8365b5eea16a52a2bd"
+        },
+        {
+            "name": "public/pos.php",
+            "existed": true,
+            "updated_hash": "6524c80c55f634d1cfe093e41c42b6f46f39819779db3f836f84c0783d18c35e"
+        },
+        {
+            "name": "public/assets/js/pos_gyd.js",
+            "existed": true,
+            "updated_hash": "a07260a26a02e6f5f4f2d07d20b58d166e5f4c84c9333cbf9a4144bab18400cc"
+        },
+        {
+            "name": "public/pos_retiro_ticket.php",
+            "existed": true,
+            "updated_hash": "cd23f3d540e0fdeaa5b0df0456603f1780485aa6e06e74d561da76524dbac3ed"
+        },
+        {
+            "name": "public/assets/js/gyd_tickets_en_pos.js",
+            "existed": false,
+            "updated_hash": "dce3eb4e3edfad46414c5528ebc17a162331c572ce314967d5cf4a90c17b8604"
+        }
+    ]
+}

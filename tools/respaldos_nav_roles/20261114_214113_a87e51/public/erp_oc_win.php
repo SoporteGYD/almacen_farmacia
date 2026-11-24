@@ -1,0 +1,465 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/../app/helpers/auth.php';
+require_once __DIR__.'/../app/config/database.php';
+require_once __DIR__.'/../app/helpers/erp_oc_win.php';
+require_once __DIR__.'/../app/helpers/erp_catalogo_iva.php';
+requireLogin();$user=currentUser()?:[];ocw_guard($user);
+$editable=ocw_can_edit($user);$error='';$flash=$_SESSION['ocw_flash']??'';unset($_SESSION['ocw_flash']);
+try{
+ $db=(new Database())->connect();
+ // OCAV_AVISOS_BARRA_OC: contar avisos sin afectar la creación ni la consulta de órdenes.
+ $ocavNavCont=0;
+ if($editable){try{require_once __DIR__.'/../app/helpers/erp_oc_avisos.php'; $ocavNavCont=(int)(ocav_conteos($db,$user)['compras']??0);}catch(Throwable $e){error_log('Avisos compras OC: '.$e->getMessage());}}
+ if(($_GET['ajax']??'')==='productos'){
+  if(!$editable){http_response_code(403);exit;}
+  $q=trim((string)($_GET['q']??''));header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
+  if(mb_strlen($q)<2){echo json_encode(['items'=>[]]);exit;}
+  $st=$db->prepare("SELECT p.id,p.codigo,p.codigo_barras,p.descripcion,p.proveedor_id,COALESCE(NULLIF(p.costo_ultimo,0),NULLIF(p.costo_promedio,0),p.precio_compra,0) AS costo, p.unidad_medida, f.iva_compra AS iva_catalogo, f.ieps AS ieps_catalogo FROM productos p LEFT JOIN erp_producto_ficha f ON f.producto_id=p.id WHERE p.estado=1 AND (p.codigo LIKE :a OR p.codigo_barras LIKE :b OR p.descripcion LIKE :c) ORDER BY CASE WHEN p.codigo=:e THEN 0 ELSE 1 END,p.descripcion LIMIT 35");
+  $q=mb_substr($q,0,70);$term='%'.$q.'%';$st->execute(['a'=>$term,'b'=>$term,'c'=>$term,'e'=>$q]);echo json_encode(['items'=>$st->fetchAll(PDO::FETCH_ASSOC)],JSON_UNESCAPED_UNICODE);exit;
+ }
+ if($_SERVER['REQUEST_METHOD']==='POST'){
+  if(!$editable){http_response_code(403);exit('No autorizado.');}ocw_check_token($_POST['csrf']??null);
+  $act=(string)($_POST['accion']??'');
+  if($act==='crear'){
+   $proveedor=(int)($_POST['proveedor_id']??0);$destino=(string)($_POST['destino']??'');
+   if(!array_key_exists($destino,ocw_destinos()))throw new RuntimeException('El almacén no es válido.');
+   $fecha=ocw_date($_POST['fecha']??'');$entrega=ocw_date($_POST['fecha_entrega']??'');
+   if($entrega<$fecha)throw new RuntimeException('La entrega no puede preceder la fecha de emisión.');
+   $observaciones=trim((string)($_POST['observaciones']??''));if(mb_strlen($observaciones)>500)throw new RuntimeException('Las observaciones exceden 500 caracteres.');
+   $p=$db->prepare('SELECT id,nombre,direccion,telefono FROM proveedores WHERE id=? AND estado=1');$p->execute([$proveedor]);$prov=$p->fetch(PDO::FETCH_ASSOC);
+   if(!$prov)throw new RuntimeException('El proveedor debe estar activo.');
+   $direc=trim((string)($_POST['direccion']??''));$colonia=trim((string)($_POST['colonia']??''));$ciudad=trim((string)($_POST['ciudad']??''));$cp=trim((string)($_POST['cp']??''));$telefono=trim((string)($_POST['telefono']??''));
+   foreach([[$direc,255],[$colonia,120],[$ciudad,100],[$cp,10],[$telefono,35]] as [$campo,$max]){if(mb_strlen($campo)>$max)throw new RuntimeException('Hay datos del proveedor demasiado largos.');}
+   if($cp!==''&&!preg_match('/^\d{5}$/D',$cp))throw new RuntimeException('El código postal debe contener 5 dígitos.');
+   $tasas=[];for($j=1;$j<=4;$j++)$tasas[]=ocw_pct($_POST['descuento_'.$j]??'0');$tasas[]=ocw_pct($_POST['descuento_general']??'0');
+   $fpgc=ocw_number($_POST['fpgc']??'0',2,9999999);
+   $pids=$_POST['producto_id']??[];$qtys=$_POST['cantidad']??[];$costos=$_POST['costo']??[];$ivas=$_POST['iva']??[];$ieps=$_POST['ieps']??[];$cajas=$_POST['cajas']??[];
+   // GYD_OC_SIN_TOPE_PARTIDAS_V1: envío compacto para evitar max_input_vars.
+   if(array_key_exists('partidas_json',$_POST)){
+    if(!is_string($_POST['partidas_json']))throw new RuntimeException('Las partidas de la orden son inválidas.');
+    $partidasJson=json_decode($_POST['partidas_json'],true,16,JSON_THROW_ON_ERROR);
+    if(!is_array($partidasJson)||!array_is_list($partidasJson))throw new RuntimeException('La lista de artículos es inválida.');
+    $pids=[];$qtys=[];$costos=[];$ivas=[];$ieps=[];$cajas=[];
+    foreach($partidasJson as $r){
+      if(!is_array($r)||!isset($r['id'],$r['cantidad'],$r['costo'],$r['iva'],$r['ieps'],$r['cajas']))throw new RuntimeException('Una partida está incompleta.');
+      $pids[]=$r['id'];$qtys[]=$r['cantidad'];$costos[]=$r['costo'];$ivas[]=$r['iva'];$ieps[]=$r['ieps'];$cajas[]=$r['cajas'];
+    }
+   }
+   if(!is_array($pids)||!is_array($qtys)||!is_array($costos)||!is_array($ivas)||!is_array($ieps)||!is_array($cajas)||count($pids)<1)throw new RuntimeException('Agrega al menos un artículo.');
+   foreach([$qtys,$costos,$ivas,$ieps,$cajas] as $a)if(count($a)!==count($pids))throw new RuntimeException('Las cantidades o impuestos no coinciden.');
+   $lineas=[];$vistos=[];$find=$db->prepare('SELECT p.id,p.codigo,p.descripcion,p.unidad_medida,f.iva_compra,f.ieps FROM productos p LEFT JOIN erp_producto_ficha f ON f.producto_id=p.id WHERE p.id=? AND p.estado=1');
+   foreach($pids as $i=>$idRaw){
+    $pid=filter_var($idRaw,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    $qty=filter_var($qtys[$i],FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>10000000]]);
+    if(!$pid)throw new RuntimeException('Artículo inválido en la línea '.($i+1).'.');if(!$qty)throw new RuntimeException('Cantidad inválida en la línea '.($i+1).' (debe ser un entero positivo).');if(isset($vistos[$pid]))throw new RuntimeException('Artículo duplicado: líneas '.$vistos[$pid].' y '.($i+1).'.');$vistos[$pid]=$i+1;
+    $find->execute([$pid]);$prod=$find->fetch(PDO::FETCH_ASSOC);if(!$prod)throw new RuntimeException('El artículo de la línea '.($i+1).' no existe o está inactivo en el Catálogo Maestro.');
+    $lineas[]=['id'=>$pid,'codigo'=>$prod['codigo'],'descripcion'=>$prod['descripcion'],'unidad'=>'PZA','cantidad'=>$qty,'costo'=>ocw_number($costos[$i],4,99999999),'iva'=>gyd_catalogo_iva_compra($prod['iva_compra'],$prod['codigo']),'ieps'=>gyd_catalogo_ieps_si_existe($prod['ieps']) ?? ocw_pct($ieps[$i]),'cajas'=>ocw_number($cajas[$i],2,9999999)];
+   }
+   $r=ocw_calcular($lineas,$tasas,$fpgc);
+   if($r['total']>999999999999)throw new RuntimeException('El importe es demasiado grande.');
+   $db->beginTransaction();
+   $st=$db->prepare('INSERT INTO erp_ordenes_compra(proveedor_id,destino,fecha,observaciones,subtotal,usuario_id) VALUES(?,?,?,?,?,?)');
+   $st->execute([$proveedor,$destino,$fecha,$observaciones,$r['subtotal'],(int)$user['id']]);$id=(int)$db->lastInsertId();
+   $folio='OC-'.str_pad((string)$id,7,'0',STR_PAD_LEFT);
+   $db->prepare('UPDATE erp_ordenes_compra SET folio=? WHERE id=?')->execute([$folio,$id]);
+   $st=$db->prepare('INSERT INTO erp_ordenes_compra_detalle(orden_id,producto_id,codigo_snapshot,descripcion_snapshot,cantidad_piezas,costo_unitario,importe) VALUES(?,?,?,?,?,?,?)');
+   $st2=$db->prepare('INSERT INTO erp_oc_win_lineas(detalle_id,unidad,tasa_iva,tasa_ieps,cantidad_cajas) VALUES(?,?,?,?,?)');
+   foreach($r['lineas'] as $l){$st->execute([$id,$l['id'],$l['codigo'],$l['descripcion'],$l['cantidad'],$l['costo'],$l['importe']]);$st2->execute([(int)$db->lastInsertId(),$l['unidad'],$l['iva'],$l['ieps'],$l['cajas']]);}
+   $st=$db->prepare('INSERT INTO erp_oc_win_meta(orden_id,fecha_entrega,direccion_proveedor,colonia_proveedor,ciudad_proveedor,cp_proveedor,telefono_proveedor,descuento_1,descuento_2,descuento_3,descuento_4,descuento_general,subtotal_bruto,descuento_total,iva_total,ieps_total,fpgc_total,total_neto) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+   $st->execute([$id,$entrega,$direc,$colonia,$ciudad,$cp,$telefono,$tasas[0],$tasas[1],$tasas[2],$tasas[3],$tasas[4],$r['subtotal'],$r['descuento'],$r['iva'],$r['ieps'],$r['fpgc'],$r['total']]);
+   if(!gd_oc_requiere_autorizacion()) {
+    $db->prepare("UPDATE erp_ordenes_compra SET estado='EMITIDA' WHERE id=? AND estado='BORRADOR'")->execute([$id]);
+   }
+   $db->commit();$_SESSION['ocw_flash']='Orden '.$folio.' '.(gd_oc_requiere_autorizacion()?'guardada como borrador; pendiente de aprobación.':'registrada y disponible para enviar al gerente, recibir y facturar; no requiere autorización.').' El inventario no fue modificado.';header('Location: erp_oc_win.php?ver='.$id,true,303);exit;
+  }
+  if($act==='liberar' && !gd_oc_requiere_autorizacion()){
+   // Liberación manual, explícita, de BORRADORES preexistentes. Nunca se liberan todas en lote.
+   $id=filter_var($_POST['orden_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+   if(!$id)throw new RuntimeException('Orden no válida.');
+   $db->beginTransaction();
+   $st=$db->prepare('SELECT estado,destino FROM erp_ordenes_compra WHERE id=? FOR UPDATE');
+   $st->execute([$id]);$o=$st->fetch(PDO::FETCH_ASSOC);
+   if(!$o||$o['estado']!=='BORRADOR')throw new RuntimeException('Solo se pueden liberar órdenes que aún están en BORRADOR.');
+   if(!ocw_can_read($db,$user,(string)$o['destino']))throw new RuntimeException('Sin permisos para la sucursal.');
+   $db->prepare("UPDATE erp_ordenes_compra SET estado='EMITIDA' WHERE id=? AND estado='BORRADOR'")->execute([$id]);
+   $db->commit();
+   error_log('ERP OC liberada sin autorizacion por politica vigente. orden='.$id.' usuario='.(int)$user['id']);
+   $_SESSION['ocw_flash']='Orden liberada por el área de Compras. No se modificaron inventarios ni historiales de autorización.';
+   header('Location: erp_oc_win.php?ver='.$id,true,303);exit;
+  }
+  if($act==='solicitar'){
+   if(!gd_oc_requiere_autorizacion())throw new RuntimeException('El flujo de autorizaciones está desactivado.');
+   $id=filter_var($_POST['orden_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$id)throw new RuntimeException('Orden no válida.');
+   $db->beginTransaction();$st=$db->prepare('SELECT * FROM erp_ordenes_compra WHERE id=? FOR UPDATE');$st->execute([$id]);$o=$st->fetch(PDO::FETCH_ASSOC);
+   if(!$o||$o['estado']!=='BORRADOR')throw new RuntimeException('Solo un borrador puede solicitar autorización.');
+   if(!ocw_can_read($db,$user,(string)$o['destino']))throw new RuntimeException('No autorizado.');
+   $st=$db->prepare('SELECT estado FROM erp_oc_autorizaciones WHERE orden_id=? FOR UPDATE');$st->execute([$id]);$auth=$st->fetchColumn();
+   if(in_array($auth,['PENDIENTE','AUTORIZADA'],true))throw new RuntimeException('Esta orden ya está en proceso de autorización.');
+   if($auth===false){$db->prepare("INSERT INTO erp_oc_autorizaciones(orden_id,estado,solicitado_por,solicitado_en) VALUES(?,'PENDIENTE',?,NOW())")->execute([$id,(int)$user['id']]);}
+   else{$db->prepare("UPDATE erp_oc_autorizaciones SET estado='PENDIENTE',solicitado_por=?,solicitado_en=NOW(),decidido_por=NULL,decidido_en=NULL,motivo_rechazo=NULL WHERE orden_id=?")->execute([(int)$user['id'],$id]);}
+   $db->prepare("INSERT INTO erp_oc_autorizaciones_historial(orden_id,usuario_id,accion) VALUES (?,?,'SOLICITADA')")->execute([$id,(int)$user['id']]);
+   $db->commit();$_SESSION['ocw_flash']='Orden enviada al flujo de autorización de Dirección.';header('Location: erp_oc_win.php?ver='.$id,true,303);exit;
+  }
+  throw new RuntimeException('Acción no válida.');
+ }
+ $proveedores=$editable?$db->query('SELECT id,nombre,direccion,telefono FROM proveedores WHERE estado=1 ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC):[];
+ if($editable){$ordenes=$db->query("SELECT o.id,o.folio,o.fecha,o.destino,o.estado,p.nombre proveedor,COALESCE(m.total_neto,o.subtotal) total,a.estado autorizacion FROM erp_ordenes_compra o JOIN proveedores p ON p.id=o.proveedor_id LEFT JOIN erp_oc_win_meta m ON m.orden_id=o.id LEFT JOIN erp_oc_autorizaciones a ON a.orden_id=o.id ORDER BY o.id DESC LIMIT 70")->fetchAll(PDO::FETCH_ASSOC);}
+ else{$filtroAuth=gd_oc_requiere_autorizacion()?" AND a.estado='AUTORIZADA'":"";
+  $st=$db->prepare("SELECT DISTINCT o.id,o.folio,o.fecha,o.destino,o.estado,p.nombre proveedor,COALESCE(m.total_neto,o.subtotal) total,a.estado autorizacion FROM erp_ordenes_compra o JOIN proveedores p ON p.id=o.proveedor_id LEFT JOIN erp_oc_win_meta m ON m.orden_id=o.id LEFT JOIN erp_oc_autorizaciones a ON a.orden_id=o.id JOIN erp_oc_win_gerentes g ON g.destino=o.destino AND g.usuario_id=? AND g.activo=1 WHERE o.estado='EMITIDA'".$filtroAuth." ORDER BY o.id DESC LIMIT 70");
+  $st->execute([(int)$user['id']]);$ordenes=$st->fetchAll(PDO::FETCH_ASSOC);}
+ $vista=null;$detalle=[];$ver=(int)($_GET['ver']??0);if($ver){$v=ocw_order($db,$ver,$user);$vista=$v['orden'];$detalle=$v['lineas'];if(!$editable&&!gd_oc_esta_lista((string)$vista['estado'],$vista['autorizacion']??null)){http_response_code(403);exit('Esta orden todavía no está emitida o disponible.');}}
+}catch(Throwable $e){if(isset($db)&&$db->inTransaction())$db->rollBack();error_log('ERP OC Win: '.$e->getMessage());$error=$e instanceof RuntimeException?$e->getMessage():'No se puede abrir Órdenes de Compra. Revisa las tablas instaladas.';$proveedores=$proveedores??[];$ordenes=$ordenes??[];$vista=$vista??null;$detalle=$detalle??[];}
+?>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ERP G&amp;D · Orden de compra</title><style>
+:root{font-family:Inter,'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:14px;color:#1d334c;background:#f3f6fa;font-synthesis:none}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f3f6fa;line-height:1.5}
+a{color:#165f9f;text-underline-offset:2px}a:hover{color:#0b3d6f}button,a.btn{font:inherit;font-weight:700}button{cursor:pointer}
+.app-header{background:#173d63;color:#fff;box-shadow:0 3px 12px #153f6220}.header-content{max-width:1440px;margin:auto;padding:17px 24px;display:flex;align-items:center;gap:22px;justify-content:space-between}.brand{display:flex;align-items:center;gap:12px}.brand-icon{width:43px;height:43px;flex:0 0 auto;display:grid;place-items:center;background:#fff2;border:1px solid #fff3;border-radius:12px;font-size:23px}.brand h1{font-size:19px;margin:0;color:white;letter-spacing:-.3px}.brand p{font-size:12px;margin:2px 0 0;color:#d0e0f1}.top-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.top-nav .nav-action{border:1px solid #7296b8;color:#fff;background:#ffffff12;border-radius:9px;padding:8px 13px;display:inline-flex;text-decoration:none;align-items:center;gap:5px;font-size:12px;font-weight:650;white-space:nowrap}.top-nav .nav-action:hover{background:#ffffff25}.nav-more{position:relative}.nav-more summary{list-style:none;cursor:pointer;user-select:none}.nav-more summary::-webkit-details-marker{display:none}.nav-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:40;background:#fff;box-shadow:0 12px 35px #09233f30;border:1px solid #e2e9f1;min-width:220px;padding:6px;border-radius:12px;display:flex;flex-direction:column;gap:3px}.nav-pop a{display:block;padding:10px 12px;text-decoration:none;color:#1d476d;border-radius:8px}.nav-pop a:hover{background:#eef5fc}
+.shell{max-width:1440px;margin:auto;padding:12px 24px 70px}.page-intro{display:flex;align-items:start;justify-content:space-between;gap:20px;margin-bottom:17px;flex-wrap:wrap}.eyebrow{font-weight:800;font-size:11px;letter-spacing:1.3px;color:#52799c;text-transform:uppercase}.page-intro h2{margin:4px 0 3px;font-size:26px;letter-spacing:-.8px;color:#163b5e}.page-intro p{margin:0;color:#647b90;font-size:13px}.intro-actions{display:flex;gap:8px;flex-wrap:wrap;align-self:center}
+.btn,button:not(.unstyled){border:1px solid transparent;background:#1766ac;color:white;border-radius:9px;padding:10px 16px;display:inline-flex;gap:7px;justify-content:center;align-items:center;text-decoration:none;font-size:13px;transition:background .12s,box-shadow .12s;white-space:nowrap}.btn:hover,button:not(.unstyled):hover{background:#0d528f;color:white}.btn.alt,button.alt{background:#fff;color:#285372;border:1px solid #d5e2ec}.btn.alt:hover,button.alt:hover{background:#edf5fc;color:#15496e}.btn.outline,button.outline{background:transparent;color:#165f9f;border-color:#bdd3e5}.btn.outline:hover,button.outline:hover{background:#e6f1fb;color:#165f9f}button:disabled{cursor:not-allowed;opacity:.5}.btn.btn-small{padding:7px 10px;font-size:12px}.btn.green{background:#16754a}.btn.green:hover{background:#10613c}
+.notice{border:1px solid #c7ddea;border-left:4px solid #2481c6;background:#edf7ff;border-radius:11px;padding:13px 16px;margin-bottom:14px;color:#264969}.notice.fail{background:#fff0f0;border-color:#f5b9bd;border-left-color:#c63644;color:#872833}.notice.ok{background:#ebf8f0;border-color:#a9dfbf;border-left-color:#21905a;color:#246041}.help-note{display:flex;align-items:start;gap:10px;padding:12px 15px;background:#eaf3fc;border:1px solid #d0e2f3;border-radius:11px;margin:15px 0 20px;color:#305c7b;font-size:13px}.help-note .info-icon{background:#cde5fb;color:#145b95;border-radius:50%;width:21px;height:21px;display:grid;place-items:center;font-weight:800;flex-shrink:0}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:20px}.step-track{display:flex;align-items:center;gap:9px;padding:12px;background:white;border:1px solid #dae5ef;border-radius:12px;min-width:0}.step-track .circle{width:29px;height:29px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;background:#e7f1fc;color:#236aa7;font-weight:800}.step-track span:last-child{font-size:12px;font-weight:750;color:#36546e}.step-track:first-child .circle{background:#1766ac;color:white}
+.card{background:white;border:1px solid #dce7f0;border-radius:15px;box-shadow:0 6px 22px #183d5e0b;margin-bottom:18px;overflow:hidden}.card-head{padding:21px 23px 15px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.card-head .index{background:#e4f2fe;color:#1665a9;font-weight:850;width:35px;height:35px;display:grid;place-items:center;border-radius:11px;flex-shrink:0}.card-head h3,.card-head h2{font-size:17px;margin:0;color:#193d5b;letter-spacing:-.3px}.card-head p{font-size:12px;color:#6b8297;margin:1px 0 0}.card-head .head-extra{margin-left:auto;font-size:12px;color:#55738c}.card-body{padding:4px 23px 24px}.fields-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 18px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}.field label,.label{font-weight:700;font-size:12px;color:#38546c}.field input,.field select,.field textarea{width:100%;min-width:0;border:1px solid #cad8e6;background:white;color:#203d55;border-radius:9px;padding:10px 12px;font:inherit;min-height:42px;outline-offset:2px}.field input:focus,.field select:focus,.field textarea:focus{border-color:#3284c9;outline:3px solid #bedcf65c}.field input[readonly]{background:#f3f6f9;color:#648096}.field textarea{min-height:77px;resize:vertical}.span2{grid-column:span 2}.span4{grid-column:1/-1}.subsection-title{font-size:11px;color:#69839a;text-transform:uppercase;letter-spacing:1px;font-weight:800;margin:2px 0 12px}.section-divider{border:0;border-top:1px solid #edf1f5;margin:22px 0}.provider-extra{margin-top:16px;border:1px solid #dce7f0;border-radius:11px;background:#fbfdff}.provider-extra summary{padding:12px 15px;font-size:13px;font-weight:750;color:#285b7e;cursor:pointer}.provider-extra .extra-body{padding:5px 15px 16px}.provider-extra .extra-body .fields-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}.search-help{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:13px 0}.check{font-size:12px;color:#3d5b75;display:inline-flex;gap:8px;align-items:center;cursor:pointer}.check input{width:16px;height:16px;accent-color:#1766ac}.search-results{max-height:215px;overflow:auto;border:1px dashed #c4d8e7;border-radius:11px;background:#f9fcff;min-height:45px;font-size:12px;color:#5e778d}.search-results .small{padding:12px;margin:0}.search-item{display:flex;gap:12px;padding:10px 13px;align-items:center;justify-content:space-between;border-bottom:1px solid #e3edf5}.search-item:last-child{border-bottom:0}.search-item span{overflow-wrap:anywhere}.table-wrap{overflow-x:auto;border:1px solid #e0e9f2;border-radius:10px;margin-top:16px;scrollbar-width:thin}table{width:100%;border-collapse:collapse}th{text-align:left;color:#385b7a;font-size:11px;background:#f0f5fa;text-transform:uppercase;letter-spacing:.15px;white-space:nowrap;border-bottom:1px solid #dce6ef}td{font-size:12px;border-bottom:1px solid #e8eff5;vertical-align:middle;color:#294861}th,td{padding:11px 12px}tr:last-child td{border-bottom:0}tr:hover td{background:#fafcff}.table-capture{min-width:1020px}.table-orders{min-width:770px}.table-capture td:nth-child(2){max-width:290px;white-space:normal}.table-capture td:first-child{white-space:nowrap;font-weight:700;color:#315777}.table-capture .row-input{width:90px;max-width:none;border:1px solid #cbdbea;border-radius:7px;padding:8px 6px;min-height:35px;font:inherit}.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.table-capture button{padding:7px 9px;font-size:11px}.table-blank{text-align:center;padding:23px 12px!important;color:#71869a;font-style:italic}.record-links{display:flex;gap:8px;flex-wrap:wrap}.record-links a{border:1px solid #d7e5f1;background:#f4f8fc;border-radius:7px;padding:5px 8px;color:#225e8e;text-decoration:none;font-size:11px;font-weight:750}.record-links a:hover{background:#e7f2fc}.record-links a.pdf-no{border-color:#cae1d6;background:#eef9f2;color:#176b46}
+.finance-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;padding:4px 23px 23px;align-items:start}.advanced{border:1px solid #e0e9f2;border-radius:12px;background:#fbfdff}.advanced>summary{padding:15px;cursor:pointer;color:#265373;font-weight:750;display:flex;gap:8px;justify-content:space-between}.advanced[open]>summary{border-bottom:1px solid #e0e9f2}.advanced-body{padding:16px}.discount-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.discount-grid input{width:100%;max-width:150px}.mini-help{font-size:12px;color:#73889b;margin:13px 0}.totals{background:#f1f7ff;border:1px solid #d3e6f8;border-radius:13px;padding:17px 19px}.totals h4{font-size:14px;margin:0 0 12px;color:#1b4566}.totals div:not(.final){display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:12px;color:#516e86}.totals strong{font-variant-numeric:tabular-nums;color:#294a67}.totals .final{display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid #c6dbea;margin-top:11px;padding-top:15px;color:#133c5f;font-weight:850;font-size:18px}.totals .final strong{font-size:25px;color:#115b9c}.qty-row{margin-top:12px;padding-top:12px;border-top:1px solid #dae7f4;color:#647f96;font-size:11px;display:flex;flex-wrap:wrap;gap:5px}.qty-row strong{color:#2d658e}.form-footer{padding:15px 23px;background:#fafcfe;border-top:1px solid #e5edf5;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.form-footer .foot-copy{font-size:12px;color:#667f94}.form-footer .foot-actions{display:flex;gap:9px;flex-wrap:wrap}
+.status-pill{display:inline-flex;align-items:center;gap:5px;background:#e8f1fc;color:#275f91;padding:5px 8px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap}.status-pill.good{background:#e7f7eb;color:#197446}.status-pill.warn{background:#fff4e2;color:#975d19}.status-pill.neutral{background:#eff3f7;color:#576d80}.saved-head{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:13px}.saved-details{display:flex;flex-wrap:wrap;gap:12px 24px;margin:16px 0;color:#46647d;font-size:13px}.saved-actions{display:flex;flex-wrap:wrap;gap:9px}.saved-total{text-align:right;color:#1b446a;margin:16px 0 0;font-size:21px;font-weight:850}.saved-form{margin-top:14px}
+.history>summary{padding:19px 22px;cursor:pointer;list-style:none;display:flex;gap:13px;align-items:center;justify-content:space-between}.history>summary::-webkit-details-marker{display:none}.history>summary strong{font-size:16px;color:#234b6d}.history>summary span{color:#6b8297;font-size:12px}.history>summary .chevron{color:#2c76ae;font-size:20px}.history[open]>summary{border-bottom:1px solid #e5ecf2}.history[open]>summary .chevron{transform:rotate(180deg)}.history-inner{padding:15px 22px 22px}.history-toolbar{margin-bottom:12px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.history-toolbar input{width:min(100%,370px);border:1px solid #d5e0ea;border-radius:9px;min-height:39px;padding:8px 12px;font:inherit}.history-toolbar .small{font-size:12px;color:#6e8194}.empty-search{display:none;padding:12px;color:#7b8da0}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:1150px){.finance-grid{grid-template-columns:minmax(0,1fr) 320px}.fields-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.span4{grid-column:span 2}.header-content{flex-wrap:wrap}.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.shell{padding:14px 12px 50px}.header-content{padding:14px}.brand h1{font-size:17px}.top-nav{width:100%}.page-intro h2{font-size:22px}.card-head{padding:17px 15px 13px}.card-body{padding:5px 15px 17px}.fields-grid{grid-template-columns:1fr 1fr;gap:13px}.provider-extra .extra-body .fields-grid{grid-template-columns:1fr 1fr}.finance-grid{grid-template-columns:1fr;padding:3px 15px 15px}.finance-grid .totals{order:-1}.form-footer{padding:13px 15px}.step-track{padding:9px}.history-inner{padding:12px}}
+@media(max-width:520px){.fields-grid,.provider-extra .extra-body .fields-grid,.discount-grid{grid-template-columns:1fr}.span2,.span4{grid-column:auto}.steps{grid-template-columns:1fr 1fr;gap:6px}.step-track span:last-child{font-size:11px}.step-track .circle{width:25px;height:25px}.search-row{grid-template-columns:1fr}.search-row button{width:100%}.history>summary{padding:15px}.form-footer .foot-actions{width:100%}.form-footer .foot-actions>*{flex:1}.page-intro{margin-bottom:11px}.btn.btn-small{padding:7px}.intro-actions{width:100%}.header-content{gap:10px}}
+@media print{.app-header,.notice,.steps,.form-footer,.history,.search-results,.search-row,.advanced{display:none!important}.shell{padding:0}.card{box-shadow:none;border:0}}
+
+/* Importación asistida de pedidos; añade artículos a la captura actual sin guardarlos. */
+.import-box{border:1px solid #a9c8e6;border-radius:13px;background:#f5faff;margin:5px 0 20px;overflow:hidden}
+.import-box>summary{list-style:none;padding:15px 17px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:14px;color:#214f77;font-weight:800;font-size:14px}
+.import-box>summary::-webkit-details-marker{display:none}.import-box[open]>summary{border-bottom:1px solid #d4e4f3}
+.import-inner{padding:16px}.import-sub{font-size:12px;color:#56748e;line-height:1.55;margin:0 0 12px}
+.import-upload{display:flex;flex-wrap:wrap;align-items:end;gap:10px}.import-upload label{flex:1;min-width:220px;font-size:12px;font-weight:750;color:#345f80}
+.import-upload input[type=file]{display:block;width:100%;border:1px solid #cbddeb;padding:10px;background:#fff;border-radius:9px;margin-top:5px;color:#345471}
+.import-controls{display:flex;flex-wrap:wrap;gap:11px;align-items:end;margin:13px 0}.import-controls>.field{min-width:220px}
+.import-mapping{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.import-mapping label{font-size:11px;font-weight:700;color:#315875}.import-mapping select{display:block;width:100%;min-height:37px;margin-top:4px}
+.import-state{font-size:12px;color:#356381;margin:10px 0;white-space:pre-line}
+.import-state.bad{color:#a5373d;font-weight:700}
+.import-result{max-height:330px;overflow:auto;background:#fff;border:1px solid #dce7f2;border-radius:9px;margin:10px 0}
+.import-table{min-width:780px}.import-table td{vertical-align:top}.import-table .ready{color:#187347;font-weight:800}.import-table .review{color:#a34b19;font-weight:700}.import-table th,.import-table td{padding:8px 10px;font-size:11px}
+.import-actions{display:flex;flex-wrap:wrap;align-items:center;gap:11px}.import-actions button[disabled]{opacity:.45;cursor:not-allowed}.import-kpi{font-weight:700;font-size:12px;color:#315a78}
+@media(max-width:830px){.import-mapping{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.import-mapping{grid-template-columns:1fr}}
+.oc-revision{border:1px solid #cbdceb;background:#f4f9fd;color:#29465e;margin:0 23px 15px;padding:11px 15px;border-radius:10px;font-size:12px}.oc-revision[hidden]{display:none}.oc-revision[data-status="error"]{border-color:#efb3ae;background:#fff6f5;color:#852e28}.oc-revision[data-status="warning"]{border-color:#f0d49a;background:#fffaf0;color:#855917}.oc-revision[data-status="ok"]{border-color:#a8d9bc;background:#f2fbf5;color:#235c3c}.oc-revision ul{margin:5px 0 0;padding-left:19px}.oc-revision li{padding:1px 0}
+
+/* GYD_OC_TRES_COSTOS_V1: datos históricos SOLO LECTURA */
+.oc-costos-compare{margin:9px 0 13px;border:1px solid #c8dae9;background:#f7fbff;border-radius:11px;overflow:hidden}
+.oc-costos-compare>summary{list-style:none;cursor:pointer;padding:10px 13px;font-size:12px;color:#255479;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:9px}
+.oc-costos-compare>summary::-webkit-details-marker{display:none}
+.oc-costos-compare>summary span{font-size:11px;color:#5e7890;font-weight:650}
+.oc-costos-compare[open]>summary{border-bottom:1px solid #dae6ef}
+.oc-costos-body{padding:9px 12px 12px}
+.oc-costos-table-wrap{width:100%;overflow-x:auto}
+.oc-costos-table{width:100%;border-collapse:collapse;min-width:680px;font-size:12px}
+.oc-costos-table th{text-align:left;background:#eaf3fb;color:#214967;font-weight:800;padding:8px;border-bottom:1px solid #cfdde9}
+.oc-costos-table td{padding:8px;border-bottom:1px solid #e0eaf2;font-variant-numeric:tabular-nums}
+.oc-costos-table th:not(:first-child),.oc-costos-table td:not(:first-child){text-align:right}
+.oc-costos-table .oc-nuevo{font-weight:800;color:#184d7f}
+.oc-costos-table .oc-alza{color:#af3f38;font-weight:800}
+.oc-costos-table .oc-baja{color:#187846;font-weight:800}
+.oc-costos-table .oc-igual{color:#526b7d}
+.oc-costos-help{font-size:11px;line-height:1.45;color:#607b92;margin:8px 0 0}
+.oc-costos-state{font-size:11px;color:#647f96;margin:7px 0}
+.oc-costos-retry{border:1px solid #8fb1cc;background:#fff;color:#20527a;border-radius:6px;padding:5px 9px;font-size:11px;cursor:pointer}
+</style></head><body>
+<header class="app-header"><div class="header-content"><div class="brand"><div class="brand-icon" aria-hidden="true">▤</div><div><h1>ERP G&amp;D · Órdenes de compra</h1><p>Captura y seguimiento de pedidos · Distribución G&amp;D</p></div></div>
+<nav class="top-nav" aria-label="Módulos relacionados"><a class="nav-action" href="erp_oc_win.php">+ Nueva orden</a><?php if(gd_oc_requiere_autorizacion()):?><a class="nav-action" href="erp_oc_autorizaciones.php">Autorizaciones</a><?php endif;?>
+<a class="nav-action" href="erp_analisis_compras.php">Análisis de compras</a> <a class="nav-action" href="erp_oc_cierre_controlado.php">Cierre de OC</a><!-- GYD_GCC_MENU_OC_V1 --> <a class="nav-action" href="erp_conciliacion_integral.php">Conciliación integral</a><!-- GYD_CI_MENU_OC_V1 --><?php if($editable):?><a class="nav-action" href="erp_compras_avisos.php">🔔 Avisos de Bodega <?php if($ocavNavCont>0):?><strong style="background:#c62040;color:white;border-radius:99px;padding:1px 7px" aria-label="Avisos pendientes"><?=(int)$ocavNavCont?></strong><?php endif;?></a><?php endif;?><details class="nav-more"><summary class="nav-action">Otros módulos ▾</summary><div class="nav-pop"><?php if(ocw_can_admin($user)):?><a href="erp_oc_win_gerentes.php">Gerentes destinatarios</a><?php endif;?><a href="erp_facturas.php">Entradas generales</a><a href="erp_recepciones_pendientes.php">Recepciones</a></div></details><a class="nav-action" href="<?= ocw_role($user)==='COMPRAS'?'erp_compras_inicio.php':'dashboard.php' ?>">← Volver al ERP</a></nav></div></header>
+<main class="shell">
+<?php if($error):?><div class="notice fail" role="alert"><?=ocw_e($error)?></div><?php endif;?>
+<?php if($flash):?><div class="notice ok" role="status"><?=ocw_e($flash)?></div><?php endif;?>
+<?php if($vista):?>
+<section class="card" aria-labelledby="saved-title">
+ <div class="card-head saved-head"><div><span class="eyebrow">Orden guardada</span><h2 id="saved-title"><?=ocw_e($vista['folio'])?> · N.º <?=ocw_e(ocw_numero((int)$vista['id']))?></h2></div>
+  <span class="status-pill <?=gd_oc_esta_lista((string)$vista['estado'],$vista['autorizacion']??null)?'good':'warn'?>"><?=ocw_e($vista['estado'])?><?php if(gd_oc_requiere_autorizacion()):?> · <?=ocw_e($vista['autorizacion']??'SIN AUTORIZAR')?><?php else:?> · Autorización no requerida<?php endif;?></span>
+ </div>
+ <div class="card-body">
+  <div class="saved-details"><span><strong>Proveedor:</strong> <?=ocw_e($vista['proveedor'])?></span><span><strong>Destino:</strong> <?=ocw_e(ocw_destinos()[$vista['destino']]??$vista['destino'])?></span><span><strong>Entrega:</strong> <?=ocw_e($vista['fecha_entrega']??$vista['fecha'])?></span></div>
+  <div class="saved-actions">
+   <a class="btn btn-small" href="erp_oc_win_pdf.php?id=<?=(int)$vista['id']?>&amp;costos=si" target="_blank" rel="noopener">PDF con costos</a>
+   <a class="btn alt btn-small" href="erp_oc_win_pdf.php?id=<?=(int)$vista['id']?>&amp;costos=no" target="_blank" rel="noopener">PDF sin costos</a>
+   <?php if($editable&&gd_oc_esta_lista((string)$vista['estado'],$vista['autorizacion']??null)):?>
+    <a class="btn green btn-small" href="erp_oc_win_enviar.php?id=<?=(int)$vista['id']?>">Enviar solo a gerentes</a>
+    <a class="btn outline btn-small" href="erp_facturas.php?orden_id=<?=(int)$vista['id']?>">Registrar factura</a>
+   <?php endif;?>
+  </div>
+  <div class="table-wrap"><table class="table-orders"><thead><tr><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Unidad</th><th class="num">Costo</th><th class="num">Importe</th></tr></thead><tbody>
+   <?php foreach($detalle as $d):?><tr><td><?=ocw_e($d['codigo_snapshot'])?></td><td><?=ocw_e($d['descripcion_snapshot'])?></td><td><?=number_format((int)$d['cantidad_piezas'])?></td><td><?=ocw_e($d['unidad']??'PZA')?></td><td class="num">$<?=number_format((float)$d['costo_unitario'],2)?></td><td class="num">$<?=number_format((float)$d['importe'],2)?></td></tr><?php endforeach;?></tbody></table></div>
+  <div class="saved-total">Total: $<?=number_format((float)($vista['total_neto']??$vista['subtotal']),2)?></div>
+  <?php if($editable&&$vista['estado']==='BORRADOR'&&!gd_oc_requiere_autorizacion()):?>
+   <form class="saved-form" method="post" onsubmit="return confirm('Confirma que este pedido en borrador ya fue acordado con el proveedor. ¿Liberar orden para enviar al gerente y recibir mercancía?')"><input type="hidden" name="csrf" value="<?=ocw_e(ocw_token())?>"><input type="hidden" name="accion" value="liberar"><input type="hidden" name="orden_id" value="<?=(int)$vista['id']?>"><button>Confirmar pedido acordado y liberar orden</button></form>
+  <?php endif;?>
+  <?php if(gd_oc_requiere_autorizacion()&&$editable&&$vista['estado']==='BORRADOR'&&!in_array($vista['autorizacion']??'',['PENDIENTE','AUTORIZADA'],true)):?>
+   <form class="saved-form" method="post" onsubmit="return confirm('¿Solicitar autorización de Dirección?')"><input type="hidden" name="csrf" value="<?=ocw_e(ocw_token())?>"><input type="hidden" name="accion" value="solicitar"><input type="hidden" name="orden_id" value="<?=(int)$vista['id']?>"><button>Solicitar autorización a Dirección</button></form>
+  <?php endif;?>
+ </div>
+</section>
+<?php endif;?>
+<?php if($editable):?>
+<form id="ocForm" method="post"><input type="hidden" name="csrf" value="<?=ocw_e(ocw_token())?>"><input type="hidden" name="accion" value="crear">
+<section class="card" id="paso-1" aria-labelledby="step1-title">
+ <div class="card-head"><span class="index">1</span><div><h3 id="step1-title">Datos generales</h3><p>Selecciona proveedor, destino y fecha de entrega</p></div><span class="head-extra"><a class="btn outline btn-small" href="#historial">Órdenes recientes ↓</a></span></div>
+ <div class="card-body">
+  <div class="fields-grid">
+   <div class="field"><label for="folio_info">Folio</label><input id="folio_info" readonly value="Se asigna al guardar"></div>
+   <div class="field"><label for="emisor_info">Emitió</label><input id="emisor_info" readonly value="<?=ocw_e($user['nombre']??'Usuario')?>"></div>
+   <div class="field"><label for="autorizo_info">Estado del trámite</label><input id="autorizo_info" readonly value="<?=gd_oc_requiere_autorizacion()?'Requiere autorización de Dirección':'Sin autorización previa · Pedido acordado'?>"></div>
+   <div class="field"><label for="oc_fecha">Fecha de orden *</label><input id="oc_fecha" type="date" name="fecha" required value="<?=date('Y-m-d')?>"></div>
+   <div class="field span2"><label for="proveedor">Proveedor *</label><select name="proveedor_id" id="proveedor" required><option value="">Selecciona un proveedor...</option><?php foreach($proveedores as $p):?><option value="<?=(int)$p['id']?>" data-nombre="<?=ocw_e($p['nombre'])?>" data-direccion="<?=ocw_e($p['direccion']??'')?>" data-telefono="<?=ocw_e($p['telefono']??'')?>"><?=ocw_e($p['nombre'])?> (<?=(int)$p['id']?>)</option><?php endforeach;?></select></div>
+   <div class="field span2"><label for="proveedor_nombre">Nombre del proveedor</label><input id="proveedor_nombre" readonly placeholder="Se completa al elegir proveedor"></div>
+   <div class="field span2"><label for="destino">Almacén o sucursal de entrega *</label><select id="destino" name="destino" required><?php foreach(ocw_destinos() as $k=>$v):?><option value="<?=ocw_e($k)?>"><?=ocw_e($v)?></option><?php endforeach;?></select></div>
+   <div class="field span2"><label for="fecha_entrega">Fecha de entrega estimada *</label><input id="fecha_entrega" name="fecha_entrega" type="date" required value="<?=date('Y-m-d',strtotime('+3 days'))?>"></div>
+   <div class="field span4"><label for="observaciones">Observaciones para esta compra</label><textarea id="observaciones" name="observaciones" maxlength="500" placeholder="Ej. entregar por la mañana, avisar al gerente, indicaciones especiales..."></textarea></div>
+  </div>
+  <details class="provider-extra"><summary>+ Dirección y contacto del proveedor (opcional, aparecen en el PDF)</summary><div class="extra-body"><div class="fields-grid">
+   <div class="field span2"><label for="p_direccion">Dirección</label><input name="direccion" id="p_direccion" maxlength="255"></div>
+   <div class="field"><label for="colonia">Colonia</label><input id="colonia" name="colonia" maxlength="120"></div>
+   <div class="field"><label for="ciudad">Ciudad</label><input id="ciudad" name="ciudad" maxlength="100"></div>
+   <div class="field"><label for="cp">Código postal</label><input id="cp" name="cp" maxlength="5" pattern="[0-9]{5}" placeholder="5 dígitos"></div>
+   <div class="field"><label for="p_telefono">Teléfono</label><input name="telefono" id="p_telefono" maxlength="35"></div>
+  </div></div></details>
+ </div>
+</section>
+<section class="card" id="paso-2" aria-labelledby="step2-title">
+ <div class="card-head"><span class="index">2</span><div><h3 id="step2-title">Artículos de la orden</h3><p>Busca, agrega y ajusta cantidades, cajas, costos e impuestos</p></div><span class="head-extra">Captura manual</span></div>
+ <div class="card-body">
+
+  <details class="import-box" id="importarOC"><summary><span>📄 Importar artículos desde archivo (TXT, CSV, Excel o PDF)</span><span aria-hidden="true">▾</span></summary>
+   <div class="import-inner">
+    <p class="import-sub">1. Selecciona el archivo del pedido. 2. Indica qué columnas corresponden a código, cantidad y costo. 3. Revisa las coincidencias con el Catálogo Maestro y agrega únicamente las correctas. <strong>No crea productos ni órdenes automáticamente.</strong></p>
+    <div class="import-upload"><label for="ocImportFile">Archivo de productos · máximo 6 MB<input id="ocImportFile" type="file" accept=".csv,.txt,.xlsx,.xls,.pdf,text/csv,application/pdf"></label><button type="button" id="ocImportRead" class="btn alt">Analizar archivo</button></div>
+    <p id="ocImportState" class="import-state" role="status" aria-live="polite">El proveedor y destino se seleccionan arriba. Las cantidades importadas son piezas, no cajas.</p>
+    <div id="ocImportPanel" hidden>
+     <div class="import-controls"><div class="field"><label for="ocImportHeader">Formato / fila de encabezados</label><select id="ocImportHeader"></select></div><button type="button" class="btn alt" id="ocImportMatch">Validar contra Catálogo Maestro</button></div>
+     <div id="ocImportMapping" class="import-mapping"></div>
+     <p class="import-sub" id="ocImportSample"></p>
+    </div>
+    <div id="ocImportReview" hidden>
+      <div id="ocImportKpi" class="import-kpi"></div>
+      <div class="import-result"><table class="import-table"><thead><tr><th><label><input type="checkbox" id="ocImportAll" checked> Usar</label></th><th>Línea</th><th>Código / Artículo</th><th>Piezas</th><th>Costo</th><th>Resultado</th></tr></thead><tbody id="ocImportTbody"></tbody></table></div>
+      <div class="import-actions"><button type="button" id="ocImportApply">Agregar artículos seleccionados a la orden</button><span class="import-sub" style="margin:0">Los artículos no encontrados deben darse de alta en Catálogo Maestro y luego importarse nuevamente.</span></div>
+    </div>
+   </div>
+  </details>
+  <div class="search-row"><div class="field"><label for="q">Buscar producto por código o descripción</label><input id="q" type="search" autocomplete="off" placeholder="Ej. código 750..., paracetamol, nombre del producto"></div><button type="button" id="buscar">Buscar artículos</button></div>
+  <div class="search-help"><label class="check"><input type="checkbox" id="soloProveedor"> Mostrar solo artículos del proveedor</label><span class="mini-help" style="margin:0">Escribe al menos 2 caracteres para buscar</span></div>
+  <div class="search-results" id="resultados" aria-live="polite"><p class="small">Aquí aparecerán los resultados de búsqueda. Pulsa «+ Agregar» para incluirlos.</p></div>
+  <div class="table-wrap" role="region" aria-label="Artículos agregados" tabindex="0"><table class="table-capture"><thead><tr><th>Artículo</th><th>Nombre</th><th>Cantidad (PZA)</th><th>Cajas</th><th>Costo unitario</th><th>IVA compra % (catálogo)</th><th>IEPS %</th><th class="num">Importe</th><th>Acción</th></tr></thead><tbody id="lineas"><tr id="empty"><td class="table-blank" colspan="9">Aún no agregas productos. Búscalos arriba para comenzar.</td></tr></tbody></table></div>
+  <details class="oc-costos-compare" id="ocCostosComparador">
+   <summary>Comparar costos por código <span id="ocCostosCuenta">0 artículos</span></summary>
+   <div class="oc-costos-body">
+    <div class="oc-costos-table-wrap"><table class="oc-costos-table" aria-label="Último, promedio y nuevo costo por código"><thead><tr><th>Código</th><th>Último costo</th><th>Costo promedio</th><th>Costo nuevo</th><th>Vs. último</th><th>Vs. promedio</th></tr></thead><tbody id="ocCostosFilas"></tbody></table></div>
+    <p class="oc-costos-state" id="ocCostosEstado" role="status">Agrega productos para consultar los costos.</p>
+    <button class="oc-costos-retry" type="button" id="ocCostosReintentar" hidden>Reintentar consulta</button>
+    <p class="oc-costos-help">El último costo y el promedio proceden del Catálogo Maestro (productos.costo_ultimo y productos.costo_promedio). El nuevo es el importe capturado en esta orden. Los históricos pueden provenir de entradas o actualizaciones previas; no se modifican al crear la orden. "Sin dato" indica que no hay referencia registrada.</p>
+   </div>
+  </details>
+  <div class="mini-help">Las cajas son informativas. Las recepciones y el movimiento de inventario se controlan por piezas, en sus módulos correspondientes.</div>
+ </div>
+</section>
+<section class="card" id="paso-3" aria-labelledby="step3-title">
+ <div class="card-head"><span class="index">3</span><div><h3 id="step3-title">Descuentos y resumen</h3><p>Revisa el importe calculado antes de guardar</p></div></div>
+ <div class="finance-grid">
+  <div><details class="advanced"><summary><span>⚙ Descuentos e impuestos adicionales</span><span aria-hidden="true">▾</span></summary><div class="advanced-body"><div class="discount-grid">
+    <?php for($n=1;$n<=4;$n++):?><div class="field"><label for="descuento_<?=$n?>">Descuento <?=$n?> (%)</label><input class="tasa" id="descuento_<?=$n?>" type="number" name="descuento_<?=$n?>" min="0" max="100" step=".01" value="0"></div><?php endfor;?>
+    <div class="field"><label for="descuento_general">Descuento general (%)</label><input class="tasa" id="descuento_general" type="number" name="descuento_general" min="0" max="100" step=".01" value="0"></div>
+    <div class="field"><label for="fpgc">FPGC ($)</label><input type="number" name="fpgc" id="fpgc" min="0" step=".01" value="0"></div>
+   </div><p class="mini-help">Los descuentos se aplican en secuencia. Los impuestos de cada artículo se calculan después del descuento.</p></div></details>
+   <p class="mini-help">Puedes dejar estos valores en cero si la orden no requiere descuentos adicionales.</p></div>
+  <aside class="totals" aria-label="Resumen de importes"><h4>Resumen de la orden</h4>
+   <div><span>Subtotal</span><strong id="sub">$0.00</strong></div><div><span>Descuento</span><strong id="desc">$0.00</strong></div><div><span>IEPS</span><strong id="iepsTotal">$0.00</strong></div><div><span>IVA</span><strong id="ivaTotal">$0.00</strong></div><div><span>FPGC</span><strong id="fpgcTotal">$0.00</strong></div>
+   <div class="final"><span>TOTAL</span><strong id="total">$0.00</strong></div>
+   <div class="qty-row"><strong id="countArt">0</strong> artículos · <strong id="countCajas">0</strong> cajas · <strong id="countPiezas">0</strong> piezas</div>
+  </aside>
+ </div>
+ <div id="ocRevisionPanel" class="oc-revision" role="status" aria-live="polite" hidden><strong id="ocRevisionTitulo">Revisión previa de la orden</strong><ul id="ocRevisionLista"></ul></div>
+ <div class="form-footer" id="paso-4"><div class="foot-copy"><strong>4. <?=gd_oc_requiere_autorizacion()?'Guardar borrador':'Registrar pedido acordado'?></strong><div><?=gd_oc_requiere_autorizacion()?'Se guardará en borrador pendiente de Dirección.':'Se habilitará para gerente, recepción y factura inmediatamente.'?> No altera inventarios ni precios.</div></div><div class="foot-actions"><button type="button" class="btn alt" id="ocRevisionBtn">Revisar orden</button><a class="btn alt" href="erp_oc_win.php">Limpiar captura</a><button type="submit"><?=gd_oc_requiere_autorizacion()?'Guardar borrador':'Registrar orden'?></button></div></div>
+</section>
+</form>
+<?php endif;?>
+<section class="card" id="historial">
+<details class="history" <?=(!$editable?'open':'')?>><summary><div><strong>Órdenes recientes</strong><div><span>Consulta pedidos guardados, descárgalos con o sin costos y revisa su estado</span></div></div><div style="display:flex;align-items:center;gap:12px"><span class="status-pill neutral"><?=count($ordenes)?> registros</span><span class="chevron" aria-hidden="true">⌄</span></div></summary>
+<div class="history-inner"><div class="history-toolbar"><label class="sr-only" for="filtrarOrdenes">Buscar en órdenes recientes</label><input id="filtrarOrdenes" type="search" placeholder="Filtrar por folio, proveedor o sucursal"><span class="small">PDF con costos y PDF sin costos están disponibles por separado.</span></div>
+<div class="table-wrap" style="margin-top:0"><table class="table-orders" id="tablaOrdenes"><thead><tr><th>Folio</th><th>Fecha</th><th>Proveedor</th><th>Destino</th><th>Estado</th><th class="num">Total</th><th>Documentos</th></tr></thead><tbody>
+<?php foreach($ordenes as $o):?><tr class="orden-row"><td><a href="?ver=<?=(int)$o['id']?>"><strong><?=ocw_e($o['folio'])?></strong></a></td><td><?=ocw_e($o['fecha'])?></td><td><?=ocw_e($o['proveedor'])?></td><td><?=ocw_e(ocw_destinos()[$o['destino']]??$o['destino'])?></td><td><span class="status-pill <?=gd_oc_esta_lista((string)$o['estado'],$o['autorizacion']??null)?'good':'warn'?>"><?=ocw_e($o['estado'].(gd_oc_requiere_autorizacion()?' · '.($o['autorizacion']??'SIN SOLICITAR'):' · Sin autorización previa'))?></span></td><td class="num">$<?=number_format((float)$o['total'],2)?></td><td><div class="record-links"><a href="?ver=<?=(int)$o['id']?>">Ver</a><a href="erp_oc_win_pdf.php?id=<?=(int)$o['id']?>&amp;costos=si" target="_blank" rel="noopener">Con costos</a><a class="pdf-no" href="erp_oc_win_pdf.php?id=<?=(int)$o['id']?>&amp;costos=no" target="_blank" rel="noopener">Sin costos</a></div></td></tr><?php endforeach;?>
+<?php if(!$ordenes):?><tr><td colspan="7">Todavía no se han generado órdenes.</td></tr><?php endif;?></tbody></table></div><p class="empty-search" id="noOrdenesBuscadas">No hay órdenes que coincidan con esa búsqueda.</p></div>
+</details>
+</section>
+</main>
+<script>
+(function(){const filter=document.querySelector('#filtrarOrdenes');if(!filter)return;filter.addEventListener('input',()=>{let needle=filter.value.trim().toLocaleLowerCase('es-MX');let visible=0;document.querySelectorAll('.orden-row').forEach(row=>{let yes=row.textContent.toLocaleLowerCase('es-MX').includes(needle);row.hidden=!yes;if(yes)visible++;});const empty=document.querySelector('#noOrdenesBuscadas');if(empty)empty.style.display=visible?'none':'block';});})();
+</script>
+
+<?php if($editable):?><script src="assets/js/erp_oc_comparador_costos.js?v=20261021" defer></script><script>
+const pesos=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n||0);
+const cents=n=>Math.round((n+Number.EPSILON)*100)/100;
+const lines=document.querySelector('#lineas'),resultados=document.querySelector('#resultados'),catalog=new Map();
+let importacionEnLote=false;
+const proveedor=document.querySelector('#proveedor');proveedor.addEventListener('change',()=>{const o=proveedor.selectedOptions[0];document.querySelector('#p_direccion').value=o?.dataset?.direccion||'';document.querySelector('#p_telefono').value=o?.dataset?.telefono||'';document.querySelector('#proveedor_nombre').value=o?.dataset?.nombre||'';});
+const prop=(name,value,min,max,step)=>{const x=document.createElement('input');x.type='number';x.name=name;x.value=value;x.required=true;x.min=min;x.max=max;x.step=step;x.className='row-input';x.addEventListener('input',recalcular);return x;};
+function agregar(p){const id=String(p.id);if(catalog.has(id))return;catalog.set(id,p);document.querySelector('#empty')?.remove();const tr=document.createElement('tr');tr.dataset.id=id;tr.dataset.catalogCost=String(p.costo_catalogo??p.costo??0);tr.dataset.ivaPendiente=String(Boolean(p.iva_pendiente||p.iva_catalogo===null||p.iva_catalogo===undefined||p.iva_catalogo===''));tr.dataset.proveedorId=String(p.proveedor_id??'');const td=(txt)=>{let c=document.createElement('td');if(txt!==undefined)c.textContent=txt;tr.append(c);return c};let c=td(p.codigo);const hidden=document.createElement('input');hidden.type='hidden';hidden.name='producto_id[]';hidden.value=id;c.append(hidden);td(p.descripcion);td().append(prop('cantidad[]','1','1','10000000','1'));td().append(prop('cajas[]','0','0','9999999','.01'));td().append(prop('costo[]',Number(p.costo||0).toFixed(4),'0','99999999','.0001'));const ivaCatalogo=prop('iva[]',String(p.iva_catalogo===null||p.iva_catalogo===undefined||p.iva_catalogo===''?0:p.iva_catalogo),'0','100','.01');ivaCatalogo.readOnly=true;ivaCatalogo.title=p.iva_catalogo===null||p.iva_catalogo===undefined||p.iva_catalogo===''?'IVA 0% provisional: falta configurar IVA de compra en Catálogo Maestro.':'Precargado desde Catálogo Maestro; edita la ficha del producto para cambiarlo.';td().append(ivaCatalogo);const iepsCatalogo=prop('ieps[]',p.ieps_catalogo===null||p.ieps_catalogo===undefined?'0':String(p.ieps_catalogo),'0','100','.01');if(p.ieps_catalogo!==null&&p.ieps_catalogo!==undefined){iepsCatalogo.readOnly=true;iepsCatalogo.title='IEPS configurado en Catálogo Maestro';}td().append(iepsCatalogo);let amount=td('');amount.className='num importe';const last=td();let b=document.createElement('button');b.type='button';b.className='alt';b.textContent='Quitar';b.addEventListener('click',()=>{catalog.delete(id);tr.remove();recalcular()});last.append(b);lines.append(tr);recalcular();}
+async function buscar(){let q=document.querySelector('#q').value.trim();if(q.length<2){resultados.textContent='Escribe al menos 2 caracteres.';return;}resultados.textContent='Buscando...';try{let response=await fetch('erp_oc_win.php?ajax=productos&q='+encodeURIComponent(q),{credentials:'same-origin'});if(!response.ok)throw Error('No disponible');const data=await response.json();resultados.replaceChildren();let count=0;data.items.forEach(p=>{if(document.querySelector('#soloProveedor').checked && String(p.proveedor_id||'')!==proveedor.value)return;const div=document.createElement('div');div.className='search-item';const label=document.createElement('span');label.textContent=p.codigo+' · '+p.descripcion;const btn=document.createElement('button');btn.className='btn alt';btn.type='button';const sinIVA=p.iva_catalogo===null||p.iva_catalogo===undefined||p.iva_catalogo==='';btn.textContent=sinIVA?'+ Agregar · IVA 0% provisional':'+ Agregar · IVA '+Number(p.iva_catalogo).toFixed(2)+'%';btn.addEventListener('click',()=>agregar(p));div.append(label,btn);if(sinIVA){const link=document.createElement('a');link.href='erp_producto_alta.php?id='+encodeURIComponent(String(p.id));link.target='_blank';link.rel='noopener';link.textContent='Configurar IVA en Catálogo';div.append(link);}resultados.append(div);count++;});if(!count)resultados.textContent='Sin resultados.';}catch(e){resultados.textContent='Error de búsqueda, verifica la conexión con la base de datos.';}}
+document.querySelector('#buscar').addEventListener('click',buscar);document.querySelector('#q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();buscar()}});
+document.querySelectorAll('.tasa,#fpgc').forEach(x=>x.addEventListener('input',recalcular));
+function recalcular(){if(importacionEnLote)return;const rates=[...document.querySelectorAll('.tasa')].map(x=>Math.max(0,Math.min(100,Number(x.value)||0)));let sub=0,discount=0,iva=0,ieps=0,piezas=0,cajas=0;lines.querySelectorAll('tr[data-id]').forEach(tr=>{const v=name=>Number(tr.querySelector('[name="'+name+'"]').value)||0;let qty=v('cantidad[]'),base=cents(qty*v('costo[]')),net=base;rates.forEach(r=>net=cents(net*(1-r/100)));let taxIeps=cents(net*v('ieps[]')/100);let taxIva=cents((net+taxIeps)*v('iva[]')/100);sub+=base;discount+=cents(base-net);iva+=taxIva;ieps+=taxIeps;piezas+=qty;cajas+=v('cajas[]');tr.querySelector('.importe').textContent=pesos(base);});let fpgc=Number(document.querySelector('#fpgc').value)||0;document.querySelector('#sub').textContent=pesos(sub);document.querySelector('#desc').textContent=pesos(discount);document.querySelector('#iepsTotal').textContent=pesos(ieps);document.querySelector('#ivaTotal').textContent=pesos(iva);document.querySelector('#fpgcTotal').textContent=pesos(fpgc);document.querySelector('#total').textContent=pesos(sub-discount+ieps+iva+fpgc);document.querySelector('#countArt').textContent=catalog.size;document.querySelector('#countCajas').textContent=cajas.toFixed(2);document.querySelector('#countPiezas').textContent=piezas.toLocaleString('es-MX');}
+
+/* Importar productos a la orden sin alterar existencias ni registrar pedido aún. */
+(()=>{
+ const $=id=>document.getElementById(id),file=$('ocImportFile'),status=$('ocImportState'),panel=$('ocImportPanel'),review=$('ocImportReview');
+ const csrf=document.querySelector('#ocForm [name="csrf"]').value;
+ let raw=null,items=[];let importPage=0;const importPageSize=100;
+ const keys=[['codigo','Código/SKU'],['descripcion','Descripción'],['cantidad','Cantidad (piezas) *'],['costo','Costo unitario'],['cajas','Cajas informativas'],['iva','IVA %'],['ieps','IEPS %'],['unidad','Unidad (PZA/CAJA)']];
+ const tell=(s,bad=false)=>{status.textContent=s;status.classList.toggle('bad',bad);};
+ async function post(form){const r=await fetch('erp_oc_importar.php',{method:'POST',body:form,credentials:'same-origin',headers:{'Accept':'application/json'}});const txt=await r.text();let data;try{data=JSON.parse(txt);}catch(e){throw Error('El servidor no devolvió JSON. Revisa las extensiones PHP o los registros de Apache.');}if(!r.ok||!data.ok)throw Error(data.error||'No se pudo procesar el archivo');return data;}
+ const makeForm=mode=>{const f=new FormData();f.append('csrf',csrf);f.append('accion_importar',mode);return f;};
+ const setMapping=(suggest={})=>{
+  const headIndex=Number($('ocImportHeader').value);
+  const heads=raw.rows[headIndex<0?0:headIndex]||[];const fields=$('ocImportMapping');fields.replaceChildren();
+  keys.forEach(([key,title])=>{let wrap=document.createElement('label');wrap.textContent=title;const sel=document.createElement('select');sel.dataset.field=key;const blank=document.createElement('option');blank.value='';blank.textContent='No disponible';sel.append(blank);
+   heads.forEach((h,i)=>{let o=document.createElement('option');o.value=i;o.textContent=String.fromCharCode(65+i)+' · '+(headIndex<0?(['CÓDIGO','CANTIDAD','COSTO'][i]||'Columna '+(i+1)):(String(h).trim().slice(0,36)||'Sin título'));sel.append(o);});
+   if(suggest[key]!==undefined && suggest[key]<heads.length)sel.value=String(suggest[key]);wrap.append(sel);fields.append(wrap);
+  });
+  const data=raw.rows.slice(headIndex<0?0:headIndex+1,(headIndex<0?0:headIndex+1)+4);
+  $('ocImportSample').textContent='Ejemplo de filas: '+data.map(x=>x.slice(0,5).join(' | ')).join('   /   ').slice(0,450);
+ };
+ $('ocImportRead').addEventListener('click',async()=>{
+  if(!file.files?.length){tell('Selecciona un archivo primero.',true);return;}
+  if(file.files[0].size>6*1024*1024){tell('El archivo excede el límite de 6 MB.',true);return;}
+  panel.hidden=true;review.hidden=true;raw=null;items=[];tell('Leyendo y detectando columnas...');const f=makeForm('leer');f.append('archivo',file.files[0]);
+  try{const data=await post(f);raw=data;panel.hidden=false;let h=$('ocImportHeader');h.replaceChildren();if(raw.hgo){const hdr=document.createElement('option');hdr.value='-1';hdr.textContent='G&D · CÓDIGO, CANTIDAD, COSTO (sin encabezados)';h.append(hdr);}raw.rows.slice(0,Math.min(18,raw.rows.length)).forEach((r,i)=>{let o=document.createElement('option');o.value=i;o.textContent=`Fila ${i+1}: ${r.slice(0,5).join(' · ').slice(0,100)}`;h.append(o);});
+    // Identificar encabezados aunque tengan líneas de logotipo/proveedor por encima (PDF).
+    let best=0,score=-1;raw.rows.slice(0,18).forEach((r,i)=>{const s=Object.keys(detect(r)).length;if(s>score){score=s;best=i;}});
+    h.value=raw.hgo?'-1':String(best);setMapping(raw.hgo?{codigo:0,cantidad:1,costo:2}:detect(raw.rows[best]));tell(raw.hgo?`${data.filename} · formato G&D reconocido: ${data.total_rows} artículos, desde la PRIMERA línea. Costos con más de 4 decimales se redondearán para guardar la orden; revisa el importe antes de confirmar.`:`${data.filename} · ${data.total_rows} filas detectadas. Confirma los nombres de las columnas antes de validar.`);
+  }catch(e){tell(e.message,true);}
+ });
+ function detect(heads){const terms={codigo:['codigo','codigobarras','articulo','sku','ean','clave'],descripcion:['descripcion','nombre','producto','concepto'],cantidad:['cantidad','cant','piezas','unidades','qty'],costo:['costounitario','preciounitario','costo','precio'],cajas:['cajas'],iva:['iva'],ieps:['ieps'],unidad:['unidad','unid']};
+  const normalize=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');const out={},used=new Set();Object.entries(terms).forEach(([k,words])=>{for(let i=0;i<heads.length;i++){if(used.has(i))continue;const v=normalize(heads[i]);if(words.some(w=>v===w||(k!=='codigo'&&v.startsWith(w)&&v.length<=w.length+10))){out[k]=i;used.add(i);break;}}});return out;}
+ $('ocImportHeader').addEventListener('change',()=>{const i=Number($('ocImportHeader').value);setMapping(i<0?{codigo:0,cantidad:1,costo:2}:detect(raw.rows[i]||[]));review.hidden=true;items=[];});
+ $('ocImportMatch').addEventListener('click',async()=>{
+  if(!raw)return;let mapping={};$('ocImportMapping').querySelectorAll('select[data-field]').forEach(sel=>mapping[sel.dataset.field]=sel.value===''?null:Number(sel.value));
+  if(mapping.cantidad===null||(mapping.codigo===null&&mapping.descripcion===null)){tell('Debes elegir cantidad y código o descripción.',true);return;}
+  const headIndex=Number($('ocImportHeader').value);const rows=raw.rows.slice(headIndex<0?0:headIndex+1).filter(r=>r.some(x=>String(x).trim()!==''));
+  tell(`Validando ${rows.length} filas del archivo en lotes...`);
+  try{
+    items=[];importPage=0;const summary={ready:0,review:0};const yaEncontrados=new Map();
+    for(let offset=0;offset<rows.length;offset+=100){
+      const f=makeForm('comparar');f.append('datos',JSON.stringify({rows:rows.slice(offset,offset+100),mapping}));
+      const data=await post(f);
+      for(const item of data.items){
+        item.line+=offset;
+        if(item.ok){const key=String(item.product.id);if(yaEncontrados.has(key)){
+          item.ok=false;item.status='Producto repetido en archivo (línea '+yaEncontrados.get(key)+')';
+          summary.review++;}else{yaEncontrados.set(key,item.line);summary.ready++;}
+        }else summary.review++;
+        item.selected=item.ok;items.push(item);
+      }
+      tell(`Revisadas ${Math.min(rows.length,offset+100)} de ${rows.length} filas...`);
+    }
+    render(summary);review.hidden=false;
+    tell(`Revisión terminada: ${summary.ready} listas, ${summary.review} requieren revisión.`);
+  }catch(e){review.hidden=true;tell(e.message,true);}
+
+ });
+ function render(sum){
+  const body=$('ocImportTbody');body.replaceChildren();
+  const start=importPage*importPageSize;
+  items.slice(start,start+importPageSize).forEach((p,i)=>{
+    const tr=document.createElement('tr');const td=text=>{let c=document.createElement('td');c.textContent=String(text??'');tr.append(c);return c;};
+    const check=td('');if(p.ok){const input=document.createElement('input');input.type='checkbox';input.checked=p.selected!==false;input.dataset.importIndex=start+i;input.addEventListener('change',()=>{p.selected=input.checked;});check.append(input);}else check.textContent='—';
+    td(p.line);td((p.code||'')+' · '+(p.name||''));td(p.ok?p.quantity:'—');td(p.ok?pesos(p.cost)+' ('+p.cost_origin+')':'—');let msg=td(p.status);msg.className=p.ok?'ready':'review';body.append(tr);
+  });
+  $('ocImportKpi').textContent=`${sum.ready} listas · ${sum.review} por revisar · ${items.length} filas detectadas`;
+  $('ocImportApply').disabled=sum.ready===0;
+  let nav=$('ocImportPager');if(!nav){nav=document.createElement('div');nav.id='ocImportPager';nav.className='import-actions';$('ocImportReview').querySelector('.import-result').after(nav);}
+  nav.replaceChildren();const pages=Math.max(1,Math.ceil(items.length/importPageSize));
+  const prev=document.createElement('button');prev.type='button';prev.className='btn alt';prev.textContent='← Anterior';prev.disabled=importPage===0;prev.addEventListener('click',()=>{importPage--;render(sum)});
+  const next=document.createElement('button');next.type='button';next.className='btn alt';next.textContent='Siguiente →';next.disabled=importPage+1>=pages;next.addEventListener('click',()=>{importPage++;render(sum)});
+  const label=document.createElement('span');label.textContent=`Página ${importPage+1} de ${pages} · seleccionado(s): ${items.filter(p=>p.ok&&p.selected).length}`;
+  nav.append(prev,label,next);
+ }
+ $('ocImportAll').addEventListener('change',e=>{items.forEach(p=>{if(p.ok)p.selected=e.target.checked;});render({ready:items.filter(p=>p.ok).length,review:items.filter(p=>!p.ok).length});});
+ $('ocImportApply').addEventListener('click',()=>{
+  let imported=0,duplicates=0,limit=0;
+  $('ocImportTbody').querySelectorAll('input[data-import-index]:checked').forEach(box=>{
+   const p=items[Number(box.dataset.importIndex)];if(!p?.ok)return;const id=String(p.product.id);
+   if(catalog.has(id)){duplicates++;return;}
+   if(catalog.size>=80){limit++;return;}
+   agregar(p.product);const tr=lines.querySelector('tr[data-id="'+id+'"]');if(!tr)return;
+   const set=(n,v)=>{const x=tr.querySelector('[name="'+n+'[]"]');if(x){x.value=String(v);x.dispatchEvent(new Event('input',{bubbles:true}));}};
+   set('cantidad',p.quantity);set('costo',p.cost);set('cajas',p.cajas);/* El IVA llega de la ficha o usa 0% provisional, nunca del archivo */set('iva',p.product.iva_catalogo===null||p.product.iva_catalogo===undefined||p.product.iva_catalogo===''?0:p.product.iva_catalogo);set('ieps',p.ieps);
+   imported++;box.checked=false;box.disabled=true;
+  });recalcular();tell(`${imported} artículos agregados a la captura.${duplicates?' '+duplicates+' ya estaban agregados.':''}${limit?' '+limit+' exceden el límite de 80.':''} Revisa cantidades y costos; después guarda la orden con el botón habitual.`,imported===0);
+  document.getElementById('lineas').scrollIntoView({behavior:'smooth',block:'center'});
+ });
+ // GYD_IMPORTACION_SIN_TOPE_CAPTURA_V2: actúa antes del listener anterior
+ // y no elimina las validaciones ni los ajustes existentes del importador.
+ $('ocImportApply').addEventListener('click',e=>{
+  e.stopImmediatePropagation();
+  let imported=0,duplicates=0;
+  const previous=importacionEnLote;
+  importacionEnLote=true;
+  try {
+   for (const p of items){
+    if(!p.ok||p.selected===false||!p.product||!p.product.id)continue;
+    const id=String(p.product.id);
+    if(catalog.has(id)){duplicates++;continue;}
+    agregar(p.product);
+    const tr=[...lines.querySelectorAll('tr[data-id]')].find(x=>x.dataset.id===id);
+    if(!tr)continue;
+    const set=(n,v)=>{const el=tr.querySelector('[name="'+n+'[]"]');if(el&&v!==undefined&&v!==null){el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));}};
+    set('cantidad',p.quantity);set('costo',p.cost);set('cajas',p.cajas);set('iva',p.iva);set('ieps',p.ieps);
+    imported++;p.selected=false;
+   }
+  } finally {importacionEnLote=previous;if(!previous)recalcular();}
+  render({ready:items.filter(p=>p.ok).length,review:items.filter(p=>!p.ok).length});
+  tell(`${imported} artículos agregados.${duplicates?' '+duplicates+' ya estaban incluidos.':''} Revisa y guarda la orden.`,imported===0);
+ },true);
+})();
+document.querySelector('#ocForm').addEventListener('submit',e=>{
+ const revision=typeof window.gydOcRevisionEvaluar==='function'?window.gydOcRevisionEvaluar():{errors:catalog.size?[]:['Agrega al menos un artículo.'],warnings:[]};
+ if(revision.errors.length){e.preventDefault();window.gydOcRevisionMostrar?.(revision);document.querySelector('#ocRevisionPanel')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+ let mensaje=<?=json_encode(gd_oc_requiere_autorizacion()?'¿Guardar borrador de orden de compra?':'¿Registrar orden de compra ya acordada con el proveedor?',JSON_UNESCAPED_UNICODE)?>;
+ if(revision.warnings.length){window.gydOcRevisionMostrar?.(revision);mensaje+='\n\nADVERTENCIAS ('+revision.warnings.length+'):\n'+revision.warnings.slice(0,5).map(x=>'• '+x).join('\n')+(revision.warnings.length>5?'\n... revisa las demás en el panel.':'')+'\n\nLas advertencias no bloquean la orden.';}
+ if(!confirm(mensaje))e.preventDefault();
+});
+
+// GYD_OC_FORM_JSON_RESPETAR_VALIDACIONES_V2
+// Registrar las partidas después de que termine la validación inteligente ya instalada.
+(()=>{const form=document.querySelector('#ocForm');if(!form)return;
+ form.addEventListener('submit',e=>{
+  if(e.defaultPrevented)return;
+  const rows=[...document.querySelectorAll('#lineas tr[data-id]')];
+  if(!rows.length)return;
+  const fields=['cantidad','costo','iva','ieps','cajas'];
+  const data=[];
+  for(const tr of rows){
+   const r={id:tr.dataset.id};
+   for(const f of fields){const el=tr.querySelector('[name="'+f+'[]"]');
+    if(!el){e.preventDefault();alert('Hay una partida incompleta. Revisa la orden.');return;}
+    r[f]=el.value;
+   }
+   data.push(r);
+  }
+  let input=form.querySelector('[name="partidas_json"]');
+  if(!input){input=document.createElement('input');input.type='hidden';input.name='partidas_json';form.append(input);}
+  input.value=JSON.stringify(data);
+  for(const tr of rows){tr.querySelectorAll('input[name$="[]"]').forEach(el=>el.removeAttribute('name'));}
+ });
+})();</script><?php endif;?><?php if($editable):?><script src="assets/js/erp_oc_validacion.js?v=20261021"></script><?php endif;?><script defer src="assets/js/erp_notificaciones.js?v=1"></script>
+<script src="assets/js/gyd_feedback_modal.js?v=5" defer></script>
+
+<script src="assets/js/gyd_excel_reportes.js" defer></script>
+
+<?php if (!defined('GYD_HIDE_GLOBAL_NAV')): ?>
+<link rel="stylesheet" href="assets/css/gyd_nav_global.css?v=4">
+<script>window.GYD_NAV_HOME='index.php';window.GYD_NAV_POS='pos.php';</script>
+<script src="assets/js/gyd_nav_global.js?v=4"></script>
+<?php endif; ?>
+</body></html>

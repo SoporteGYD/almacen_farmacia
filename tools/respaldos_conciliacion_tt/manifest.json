@@ -1,0 +1,14 @@
+{
+    "helper": {
+        "creado": true,
+        "instalado": "be4cd518a41dc231efa24d04ea6206b5260d424df9e0c3aa6e89467eabc5da81"
+    },
+    "page": {
+        "creado": true,
+        "instalado": "a1fa2a1c33ce898ee9d749f0f4c76db060bd1a753b9bf19ac316ffdfa4152e7b"
+    },
+    "alerts": {
+        "creado": false,
+        "instalado": "2f122d320c60b808488af7ff50ffdd494ca83950e0c9160094e333af7aa5cfd5"
+    }
+}

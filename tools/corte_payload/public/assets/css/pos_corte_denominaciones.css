@@ -1,0 +1,11 @@
+#gyd-corte-conteo{max-height:56vh;overflow:auto;padding:12px;background:#f4f8fd;border:1px solid #d9e6f3;border-radius:12px;margin:12px 0}
+#gyd-corte-conteo[hidden]{display:none!important}
+#gyd-corte-conteo h3{font-size:17px;color:#173d64;margin:0 0 6px}
+#gyd-corte-conteo p{font-size:12px;color:#536c84;margin:0 0 10px}
+.gyd-corte-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.gyd-corte-grid label{display:flex;flex-direction:column;font-weight:700;font-size:12px;color:#1d4065;gap:5px}
+.gyd-corte-grid input{width:100%;min-width:0;padding:10px;border-radius:8px;border:1px solid #a6bed7;font-size:16px}
+.gyd-corte-total{margin-top:14px;padding:10px 12px;background:#e2f4ec;border-radius:9px;display:flex;justify-content:space-between;gap:8px;color:#104a37;font-size:14px}
+.gyd-corte-total strong{font-size:20px}
+@media(max-width:640px){.gyd-corte-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#campoDialog[hidden]{display:none!important}

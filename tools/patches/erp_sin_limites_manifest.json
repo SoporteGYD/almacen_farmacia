@@ -1,0 +1,174 @@
+{
+  "version": "GYD_SIN_LIMITES_PARTIDAS_V1",
+  "files": {
+    "app/helpers/erp_facturas_oc_documental.php": [
+      {
+        "old": [
+          "    if(count($partidas)>200)throw new RuntimeException('La orden tiene más de 200 artículos pendientes. Contacta a Sistemas; no inventes varias facturas para un solo documento real.');\n",
+          "    if(count($partidas)>60)throw new RuntimeException('Más de 60 artículos pendientes: divide la factura en varios documentos reales.');\n"
+        ],
+        "new": "    // GYD_DOC_FACTURAS_SIN_TOPE_V1\n"
+      }
+    ],
+    "app/helpers/erp_facturas_oc_parciales.php": [
+      {
+        "old": [
+          "    if(count($partidas)>200)throw new RuntimeException('Hay más de 200 artículos pendientes en la orden. Contacta a Sistemas si corresponden a una sola factura real.');\n",
+          "    if(count($partidas)>60)throw new RuntimeException('Hay más de 60 productos disponibles. Debes dividir la captura en varias facturas.');\n"
+        ],
+        "new": "    // GYD_PARCIALES_FACTURAS_SIN_TOPE_V1\n"
+      }
+    ],
+    "public/erp_facturas.php": [
+      {
+        "old": [
+          "   $pids=$_POST['producto_id']??[];$qtys=$_POST['cantidad']??[];$costos=$_POST['costo']??[];\n   if(!is_array($pids)||!is_array($qtys)||!is_array($costos)||count($pids)<1||count($pids)>200||count($pids)!==count($qtys)||count($pids)!==count($costos))throw new RuntimeException('Agrega entre 1 y 200 productos.');",
+          "   $pids=$_POST['producto_id']??[];$qtys=$_POST['cantidad']??[];$costos=$_POST['costo']??[];\n   if(!is_array($pids)||!is_array($qtys)||!is_array($costos)||count($pids)<1||count($pids)>60||count($pids)!==count($qtys)||count($pids)!==count($costos))throw new RuntimeException('Agrega entre 1 y 60 productos.');"
+        ],
+        "new": "   // GYD_FACTURAS_SIN_TOPE_PARTIDAS_V1: JSON único para no perder partidas por max_input_vars.\n   $pids=$_POST['producto_id']??[];$qtys=$_POST['cantidad']??[];$costos=$_POST['costo']??[];\n   if(array_key_exists('partidas_json',$_POST)){\n     if(!is_string($_POST['partidas_json']))throw new RuntimeException('Datos de partidas inválidos.');\n     $partidasJson=json_decode($_POST['partidas_json'],true,16,JSON_THROW_ON_ERROR);\n     if(!is_array($partidasJson)||!array_is_list($partidasJson))throw new RuntimeException('Lista de partidas inválida.');\n     $pids=[];$qtys=[];$costos=[];\n     foreach($partidasJson as $r){\n       if(!is_array($r)||!isset($r['id'],$r['qty'],$r['costo']))throw new RuntimeException('Hay partidas incompletas.');\n       $pids[]=$r['id'];$qtys[]=$r['qty'];$costos[]=$r['costo'];\n     }\n   }\n   if(!is_array($pids)||!is_array($qtys)||!is_array($costos)||count($pids)<1||count($pids)!==count($qtys)||count($pids)!==count($costos))throw new RuntimeException('Agrega al menos un producto válido.');"
+      },
+      {
+        "old": [
+          "function dibujar(){tbody.replaceChildren();for(const p of productos.values()){\n const tr=document.createElement('tr');const td=document.createElement('td');td.textContent=p.codigo+' · '+p.descripcion;\n const hidden=document.createElement('input');hidden.type='hidden';hidden.name='producto_id[]';hidden.value=p.id;td.append(hidden);\n const cant=document.createElement('td'),q=document.createElement('input');q.type='number';q.name='cantidad[]';q.min='1';q.max=String(p.disponible??10000000);q.step='1';q.required=true;q.value=p.qty??1;q.addEventListener('input',()=>{p.qty=q.value;});cant.append(q);\n const cos=document.createElement('td'),c=document.createElement('input');c.type='number';c.name='costo[]';c.min='0';c.max='999999999';c.step='.0001';c.required=true;c.value=p.costo??'0.0000';c.addEventListener('input',()=>{p.costo=c.value;});cos.append(c);\n const rm=document.createElement('td'),btn=document.createElement('button');btn.type='button';btn.textContent='Quitar';btn.addEventListener('click',()=>{productos.delete(String(p.id));dibujar()});rm.append(btn);\n tr.append(td,cant,cos,rm);tbody.append(tr);\n }}\n"
+        ],
+        "new": "// GYD_FACTURAS_PAGINACION_V1: muestra sólo 50 a la vez, mantiene TODOS los artículos en memoria.\nlet paginaFactura=0;\nconst filasPorPaginaFactura=50;\nconst controlesFactura=document.createElement('div');\ncontrolesFactura.className='tools';controlesFactura.style.marginTop='10px';\ntbody.closest('.tablewrap').after(controlesFactura);\nfunction dibujar(){\n  tbody.replaceChildren();controlesFactura.replaceChildren();\n  const todos=[...productos.values()];\n  const paginas=Math.max(1,Math.ceil(todos.length/filasPorPaginaFactura));\n  paginaFactura=Math.min(paginaFactura,paginas-1);\n  const inicio=paginaFactura*filasPorPaginaFactura;\n  for(const p of todos.slice(inicio,inicio+filasPorPaginaFactura)){\n    const tr=document.createElement('tr');const td=document.createElement('td');td.textContent=p.codigo+' · '+p.descripcion;\n    const cant=document.createElement('td'),q=document.createElement('input');q.type='number';q.name='cantidad[]';q.min='1';q.max=String(p.disponible??10000000);q.step='1';q.required=true;q.value=p.qty??1;\n    q.addEventListener('input',()=>{p.qty=q.value;});cant.append(q);\n    const cos=document.createElement('td'),c=document.createElement('input');c.type='number';c.name='costo[]';c.min='0';c.max='999999999';c.step='.0001';c.required=true;c.value=p.costo??'0.0000';\n    c.addEventListener('input',()=>{p.costo=c.value;});cos.append(c);\n    const rm=document.createElement('td'),btn=document.createElement('button');btn.type='button';btn.textContent='Quitar';\n    btn.addEventListener('click',()=>{productos.delete(String(p.id));dibujar()});rm.append(btn);\n    tr.append(td,cant,cos,rm);tbody.append(tr);\n  }\n  const title=document.createElement('span');title.textContent=`${todos.length} artículos · página ${paginaFactura+1} de ${paginas}`;\n  const b=document.createElement('button');b.type='button';b.className='btn alt';b.textContent='Anterior';b.disabled=paginaFactura===0;b.addEventListener('click',()=>{paginaFactura--;dibujar()});\n  const n=document.createElement('button');n.type='button';n.className='btn alt';n.textContent='Siguiente';n.disabled=paginaFactura>=paginas-1;n.addEventListener('click',()=>{paginaFactura++;dibujar()});\n  controlesFactura.append(title,b,n);\n}\n"
+      },
+      {
+        "old": [
+          "if(productos.size>=200&&!productos.has(String(p.id)))return alert('Máximo 200 productos por factura.');"
+        ],
+        "new": "/* GYD_BUSQUEDA_FACTURA_SIN_TOPE_V1 */"
+      },
+      {
+        "old": [
+          "form.addEventListener('submit',e=>{if(selectOC.disabled){e.preventDefault();alert('Espera a que termine de cargar la orden.');return;}if(!productos.size){e.preventDefault();alert('Agrega al menos un producto.');return;}if(!confirm('¿Confirmar factura y cantidades? La entrada quedará registrada contablemente, pendiente de revisión física.'))e.preventDefault();});"
+        ],
+        "new": "form.addEventListener('submit',e=>{\n if(selectOC.disabled){e.preventDefault();alert('Espera a que termine de cargar la orden.');return;}\n if(!productos.size){e.preventDefault();alert('Agrega al menos un producto.');return;}\n if(!confirm('¿Confirmar factura de '+productos.size+' artículos? La entrada contable NO aumenta existencias.')){e.preventDefault();return;}\n const data=[...productos.values()].map(p=>({id:String(p.id),qty:String(p.qty??1),costo:String(p.costo??'0.0000')}));\n let input=form.querySelector('[name=\"partidas_json\"]');\n if(!input){input=document.createElement('input');input.type='hidden';input.name='partidas_json';form.append(input);}\n input.value=JSON.stringify(data);\n // No depender de max_input_vars al enviar miles de renglones.\n tbody.querySelectorAll('[name=\"cantidad[]\"],[name=\"costo[]\"]').forEach(el=>el.removeAttribute('name'));\n});"
+      }
+    ],
+    "public/erp_oc_win.php": [
+      {
+        "old": [
+          "$pids=$_POST['producto_id']??[];$qtys=$_POST['cantidad']??[];$costos=$_POST['costo']??[];$ivas=$_POST['iva']??[];$ieps=$_POST['ieps']??[];$cajas=$_POST['cajas']??[];\n   if(!is_array($pids)||!is_array($qtys)||!is_array($costos)||!is_array($ivas)||!is_array($ieps)||!is_array($cajas)||count($pids)<1||count($pids)>80)throw new RuntimeException('Agrega de 1 a 80 artículos.');"
+        ],
+        "new": "$pids=$_POST['producto_id']??[];$qtys=$_POST['cantidad']??[];$costos=$_POST['costo']??[];$ivas=$_POST['iva']??[];$ieps=$_POST['ieps']??[];$cajas=$_POST['cajas']??[];\n   // GYD_OC_SIN_TOPE_PARTIDAS_V1: envío compacto para evitar max_input_vars.\n   if(array_key_exists('partidas_json',$_POST)){\n    if(!is_string($_POST['partidas_json']))throw new RuntimeException('Las partidas de la orden son inválidas.');\n    $partidasJson=json_decode($_POST['partidas_json'],true,16,JSON_THROW_ON_ERROR);\n    if(!is_array($partidasJson)||!array_is_list($partidasJson))throw new RuntimeException('La lista de artículos es inválida.');\n    $pids=[];$qtys=[];$costos=[];$ivas=[];$ieps=[];$cajas=[];\n    foreach($partidasJson as $r){\n      if(!is_array($r)||!isset($r['id'],$r['cantidad'],$r['costo'],$r['iva'],$r['ieps'],$r['cajas']))throw new RuntimeException('Una partida está incompleta.');\n      $pids[]=$r['id'];$qtys[]=$r['cantidad'];$costos[]=$r['costo'];$ivas[]=$r['iva'];$ieps[]=$r['ieps'];$cajas[]=$r['cajas'];\n    }\n   }\n   if(!is_array($pids)||!is_array($qtys)||!is_array($costos)||!is_array($ivas)||!is_array($ieps)||!is_array($cajas)||count($pids)<1)throw new RuntimeException('Agrega al menos un artículo.');"
+      },
+      {
+        "old": [
+          "const lines=document.querySelector('#lineas'),resultados=document.querySelector('#resultados'),catalog=new Map();"
+        ],
+        "new": "const lines=document.querySelector('#lineas'),resultados=document.querySelector('#resultados'),catalog=new Map();\nlet importacionEnLote=false;"
+      },
+      {
+        "old": [
+          "function recalcular(){const rates="
+        ],
+        "new": "function recalcular(){if(importacionEnLote)return;const rates="
+      },
+      {
+        "old": [
+          " let raw=null,items=[];"
+        ],
+        "new": " let raw=null,items=[];let importPage=0;const importPageSize=100;"
+      },
+      {
+        "old": [
+          "  if(rows.length>200){tell('Máximo 200 filas para revisar. Divide el archivo en varias partes.',true);return;}\n  tell('Buscando coincidencias exactas en el Catálogo Maestro...');const f=makeForm('comparar');f.append('datos',JSON.stringify({rows,mapping}));\n  try{const data=await post(f);items=data.items;render(data.summary);review.hidden=false;tell(`Revisión terminada: ${data.summary.ready} coincidentes, ${data.summary.review} por revisar. Solo agrega las que estén correctas.`);}catch(e){review.hidden=true;tell(e.message,true);}"
+        ],
+        "new": "  tell(`Validando ${rows.length} filas del archivo en lotes...`);\n  try{\n    items=[];importPage=0;const summary={ready:0,review:0};const yaEncontrados=new Map();\n    for(let offset=0;offset<rows.length;offset+=100){\n      const f=makeForm('comparar');f.append('datos',JSON.stringify({rows:rows.slice(offset,offset+100),mapping}));\n      const data=await post(f);\n      for(const item of data.items){\n        item.line+=offset;\n        if(item.ok){const key=String(item.product.id);if(yaEncontrados.has(key)){\n          item.ok=false;item.status='Producto repetido en archivo (línea '+yaEncontrados.get(key)+')';\n          summary.review++;}else{yaEncontrados.set(key,item.line);summary.ready++;}\n        }else summary.review++;\n        item.selected=item.ok;items.push(item);\n      }\n      tell(`Revisadas ${Math.min(rows.length,offset+100)} de ${rows.length} filas...`);\n    }\n    render(summary);review.hidden=false;\n    tell(`Revisión terminada: ${summary.ready} listas, ${summary.review} requieren revisión.`);\n  }catch(e){review.hidden=true;tell(e.message,true);}\n"
+      },
+      {
+        "old": [
+          " function render(sum){const body=$('ocImportTbody');body.replaceChildren();items.forEach((p,i)=>{let tr=document.createElement('tr');const td=text=>{let c=document.createElement('td');c.textContent=String(text??'');tr.append(c);return c;};\n   const check=td('');if(p.ok){const input=document.createElement('input');input.type='checkbox';input.checked=true;input.dataset.importIndex=i;check.append(input);}else check.textContent='—';td(p.line);td((p.code||'')+' · '+(p.name||''));td(p.ok?p.quantity:'—');td(p.ok?pesos(p.cost)+' ('+p.cost_origin+')':'—');let msg=td(p.status);msg.className=p.ok?'ready':'review';body.append(tr);\n  });$('ocImportKpi').textContent=`${sum.ready} listas para agregar · ${sum.review} pendientes de revisión · máximo 80 artículos por orden`;\n  $('ocImportApply').disabled=sum.ready===0;\n }\n"
+        ],
+        "new": " function render(sum){\n  const body=$('ocImportTbody');body.replaceChildren();\n  const start=importPage*importPageSize;\n  items.slice(start,start+importPageSize).forEach((p,i)=>{\n    const tr=document.createElement('tr');const td=text=>{let c=document.createElement('td');c.textContent=String(text??'');tr.append(c);return c;};\n    const check=td('');if(p.ok){const input=document.createElement('input');input.type='checkbox';input.checked=p.selected!==false;input.dataset.importIndex=start+i;input.addEventListener('change',()=>{p.selected=input.checked;});check.append(input);}else check.textContent='—';\n    td(p.line);td((p.code||'')+' · '+(p.name||''));td(p.ok?p.quantity:'—');td(p.ok?pesos(p.cost)+' ('+p.cost_origin+')':'—');let msg=td(p.status);msg.className=p.ok?'ready':'review';body.append(tr);\n  });\n  $('ocImportKpi').textContent=`${sum.ready} listas · ${sum.review} por revisar · ${items.length} filas detectadas`;\n  $('ocImportApply').disabled=sum.ready===0;\n  let nav=$('ocImportPager');if(!nav){nav=document.createElement('div');nav.id='ocImportPager';nav.className='import-actions';$('ocImportReview').querySelector('.import-result').after(nav);}\n  nav.replaceChildren();const pages=Math.max(1,Math.ceil(items.length/importPageSize));\n  const prev=document.createElement('button');prev.type='button';prev.className='btn alt';prev.textContent='← Anterior';prev.disabled=importPage===0;prev.addEventListener('click',()=>{importPage--;render(sum)});\n  const next=document.createElement('button');next.type='button';next.className='btn alt';next.textContent='Siguiente →';next.disabled=importPage+1>=pages;next.addEventListener('click',()=>{importPage++;render(sum)});\n  const label=document.createElement('span');label.textContent=`Página ${importPage+1} de ${pages} · seleccionado(s): ${items.filter(p=>p.ok&&p.selected).length}`;\n  nav.append(prev,label,next);\n }\n"
+      },
+      {
+        "old": [
+          " $('ocImportAll').addEventListener('change',e=>{$('ocImportTbody').querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=e.target.checked);});"
+        ],
+        "new": " $('ocImportAll').addEventListener('change',e=>{items.forEach(p=>{if(p.ok)p.selected=e.target.checked;});render({ready:items.filter(p=>p.ok).length,review:items.filter(p=>!p.ok).length});});"
+      },
+      {
+        "old": [
+          " $('ocImportApply').addEventListener('click',()=>{\n  let imported=0,duplicates=0,limit=0;\n  $('ocImportTbody').querySelectorAll('input[data-import-index]:checked').forEach(box=>{\n   const p=items[Number(box.dataset.importIndex)];if(!p?.ok)return;const id=String(p.product.id);\n   if(catalog.has(id)){duplicates++;return;}\n   if(catalog.size>=80){limit++;return;}\n   agregar(p.product);const tr=lines.querySelector('tr[data-id=\"'+id+'\"]');if(!tr)return;\n   const set=(n,v)=>{const x=tr.querySelector('[name=\"'+n+'[]\"]');if(x){x.value=String(v);x.dispatchEvent(new Event('input',{bubbles:true}));}};\n   set('cantidad',p.quantity);set('costo',p.cost);set('cajas',p.cajas);set('iva',p.iva);set('ieps',p.ieps);\n   imported++;box.checked=false;box.disabled=true;\n  });recalcular();tell(`${imported} artículos agregados a la captura.${duplicates?' '+duplicates+' ya estaban agregados.':''}${limit?' '+limit+' exceden el límite de 80.':''} Revisa cantidades y costos; después guarda la orden con el botón habitual.`,imported===0);\n  document.getElementById('lineas').scrollIntoView({behavior:'smooth',block:'center'});\n });"
+        ],
+        "new": " $('ocImportApply').addEventListener('click',()=>{\n  let imported=0,duplicates=0;importacionEnLote=true;\n  try{\n   for(const p of items){if(!p.ok||!p.selected)continue;const id=String(p.product.id);\n     if(catalog.has(id)){duplicates++;continue;}\n     agregar(p.product);const tr=lines.querySelector('tr[data-id=\"'+id+'\"]');if(!tr)continue;\n     const set=(n,v)=>{const x=tr.querySelector('[name=\"'+n+'[]\"]');if(x){x.value=String(v);x.dispatchEvent(new Event('input',{bubbles:true}));}};\n     set('cantidad',p.quantity);set('costo',p.cost);set('cajas',p.cajas);set('iva',p.iva);set('ieps',p.ieps);\n     imported++;p.selected=false;\n   }\n  }finally{importacionEnLote=false;recalcular();}\n  render({ready:items.filter(p=>p.ok).length,review:items.filter(p=>!p.ok).length});\n  tell(`${imported} artículos agregados.${duplicates?' '+duplicates+' ya estaban incluidos.':''} Revisa y guarda la orden.`,imported===0);\n });"
+      },
+      {
+        "old": [
+          "document.querySelector('#ocForm').addEventListener('submit',e=>{if(!catalog.size){e.preventDefault();alert('Agrega al menos un artículo.');return;}if(!confirm(<?=json_encode(gd_oc_requiere_autorizacion()?'¿Guardar borrador de orden de compra?':'¿Registrar orden de compra ya acordada con el proveedor?',JSON_UNESCAPED_UNICODE)?>))e.preventDefault();});"
+        ],
+        "new": "document.querySelector('#ocForm').addEventListener('submit',e=>{\n if(!catalog.size){e.preventDefault();alert('Agrega al menos un artículo.');return;}\n if(!confirm(<?=json_encode(gd_oc_requiere_autorizacion()?'¿Guardar borrador de orden de compra?':'¿Registrar orden de compra ya acordada con el proveedor?',JSON_UNESCAPED_UNICODE)?>)){e.preventDefault();return;}\n const form=e.currentTarget, fields=['cantidad','costo','iva','ieps','cajas'];\n const partidas=[...lines.querySelectorAll('tr[data-id]')].map(tr=>{\n   const item={id:tr.dataset.id};fields.forEach(k=>{item[k]=tr.querySelector('[name=\"'+k+'[]\"]').value;});return item;\n });\n let j=form.querySelector('[name=\"partidas_json\"]');if(!j){j=document.createElement('input');j.type='hidden';j.name='partidas_json';form.append(j);}j.value=JSON.stringify(partidas);\n lines.querySelectorAll('input[name$=\"[]\"]').forEach(x=>x.removeAttribute('name'));\n});"
+      }
+    ],
+    "app/helpers/erp_oc_importar.php": [
+      {
+        "old": [
+          " foreach($raw as $r){\n  if(count($rows)>=210)break;\n"
+        ],
+        "new": " foreach($raw as $r){\n  // GYD_PARSE_FILAS_SIN_TOPE_V1\n"
+      },
+      {
+        "old": [
+          "$lines=array_values(array_filter(array_slice($lines,0,700),fn($l)=>trim($l)!==''));"
+        ],
+        "new": "$lines=array_values(array_filter($lines,fn($l)=>trim($l)!=='')); // GYD_TEXT_FILAS_SIN_TOPE_V1"
+      },
+      {
+        "old": [
+          "   if(count($rows)>=210)break;\n"
+        ],
+        "new": "   // GYD_XLSX_FILAS_SIN_TOPE_V1\n"
+      },
+      {
+        "old": [
+          "  $command=escapeshellarg($binary).' -f 1 -l 8 -layout -enc UTF-8 '"
+        ],
+        "new": "  $command=escapeshellarg($binary).' -layout -enc UTF-8 '"
+      },
+      {
+        "old": [
+          " if(count($rows)>205)throw new RuntimeException('El archivo excede el límite de 200 filas de importación.');\n"
+        ],
+        "new": " // GYD_COTEJO_SIN_TOPE_V1\n"
+      }
+    ],
+    "public/erp_oc_importar.php": [
+      {
+        "old": [
+          "$r=$arr['rows'];if(count($r)>210)throw new RuntimeException('Demasiadas filas.');"
+        ],
+        "new": "$r=$arr['rows']; // GYD_COMPARAR_SIN_TOPE_V1"
+      }
+    ],
+    "public/erp_facturas_aplicar.php": [
+      {
+        "old": [
+          "$ids=$_POST['aplicar']??[];$locations=$_POST['ubicacion']??[];\n        if(!is_array($ids)||!is_array($locations)||!count($ids)||count($ids)>200)throw new RuntimeException('Selecciona entre 1 y 200 partidas aceptadas.');"
+        ],
+        "new": "$ids=$_POST['aplicar']??[];$locations=$_POST['ubicacion']??[];\n        // GYD_APLICACION_SIN_TOPE_PARTIDAS_V1\n        if(array_key_exists('aplicar_json',$_POST)){\n          if(!is_string($_POST['aplicar_json']))throw new RuntimeException('Selección de partidas inválida.');\n          $payload=json_decode($_POST['aplicar_json'],true,16,JSON_THROW_ON_ERROR);\n          if(!is_array($payload)||!array_is_list($payload))throw new RuntimeException('La selección de partidas no es válida.');\n          $ids=[];$locations=[];\n          foreach($payload as $row){\n            if(!is_array($row)||!isset($row['id']))throw new RuntimeException('Partida incompleta.');\n            $ids[]=$row['id'];$locations[(int)$row['id']]=$row['ubicacion']??'';\n          }\n        }\n        if(!is_array($ids)||!is_array($locations)||!count($ids))throw new RuntimeException('Selecciona al menos una partida aceptada.');"
+      },
+      {
+        "old": [
+          "<?php endif;?></form>\n<?php endif;?></section>"
+        ],
+        "new": "<?php endif;?></form>\n<script>\n// GYD_APLICACION_JSON_V1: ningún lote pierde líneas por max_input_vars.\n(()=>{const form=document.querySelector('input[name=\"aplicar_token\"]')?.form;if(!form)return;\n form.addEventListener('submit',e=>{\n  if(e.defaultPrevented)return;\n  const selected=[...form.querySelectorAll('input[name=\"aplicar[]\"]:checked')];\n  const rows=selected.map(el=>({id:el.value,ubicacion:form.querySelector('input[name=\"ubicacion['+el.value+']\"]')?.value??''}));\n  let hidden=form.querySelector('input[name=\"aplicar_json\"]');if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.name='aplicar_json';form.append(hidden);}hidden.value=JSON.stringify(rows);\n  form.querySelectorAll('input[name=\"aplicar[]\"],input[name^=\"ubicacion[\"]').forEach(el=>el.removeAttribute('name'));\n });\n})();\n</script>\n<?php endif;?></section>"
+      }
+    ],
+    "public/erp_facturas_verificacion.php": [
+      {
+        "old": [
+          "        $lotes=$_POST['lote']??[];$cads=$_POST['caducidad']??[];$notas=$_POST['nota']??[];"
+        ],
+        "new": "        // GYD_REVISION_JSON_V1: soporta formularios con miles de artículos.\n        if(array_key_exists('revision_datos_json',$_POST)){\n            if(!is_string($_POST['revision_datos_json']))throw new RuntimeException('Datos de revisión inválidos.');\n            $payload=json_decode($_POST['revision_datos_json'],true,16,JSON_THROW_ON_ERROR);\n            if(!is_array($payload)||!array_is_list($payload))throw new RuntimeException('Revisión de mercancía inválida.');\n            foreach(['aceptada','faltante','danada','caducada','equivocada','lote','caducidad','nota'] as $key)$_POST[$key]=[];\n            foreach($payload as $row){\n                if(!is_array($row)||!isset($row['id']))throw new RuntimeException('Partida de revisión incompleta.');\n                $id=filter_var($row['id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);\n                if(!$id)throw new RuntimeException('Código de partida incorrecto.');\n                foreach(['aceptada','faltante','danada','caducada','equivocada','lote','caducidad','nota'] as $key){\n                    if(array_key_exists($key,$row))$_POST[$key][$id]=$row[$key];\n                }\n            }\n        }\n        $lotes=$_POST['lote']??[];$cads=$_POST['caducidad']??[];$notas=$_POST['nota']??[];"
+      },
+      {
+        "old": [
+          "<button type=\"submit\">Guardar verificación</button></form>"
+        ],
+        "new": "<button type=\"submit\">Guardar verificación</button></form>\n<script>\n// GYD_REVISION_JSON_V1\n(()=>{const form=document.querySelector('input[name=\"accion\"][value=\"revisar\"]')?.form;if(!form)return;\n form.addEventListener('submit',e=>{\n   if(e.defaultPrevented)return;\n   const map=new Map();\n   const re=/^(aceptada|faltante|danada|caducada|equivocada|lote|caducidad|nota)\\[(\\d+)\\]$/;\n   for(const el of form.querySelectorAll('input[name]')){\n      const m=el.name.match(re);if(!m)continue;\n      const row=map.get(m[2])||{id:m[2]};if(!el.disabled)row[m[1]]=el.value;\n      map.set(m[2],row);\n   }\n   let hidden=form.querySelector('input[name=\"revision_datos_json\"]');if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.name='revision_datos_json';form.append(hidden);}\n   hidden.value=JSON.stringify([...map.values()]);\n   form.querySelectorAll('input[name]').forEach(el=>{if(re.test(el.name))el.removeAttribute('name');});\n });\n})();\n</script>"
+      }
+    ]
+  }
+}

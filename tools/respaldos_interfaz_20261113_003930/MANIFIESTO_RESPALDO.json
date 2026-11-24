@@ -1,0 +1,19 @@
+{
+    "public/gyd_canjes.php": "d5d616ca03f4e4fad4484409f35756ff9fca8ee87dcc4b471373245733f1631a",
+    "public/gyd_clientes.php": "639eb783a4bb534b18df38d186e4fc629b29748c2c8dd90996268b1508348688",
+    "public/gyd_recompensas.php": "b129c93281888176bbc5384842b71d8ed5655532d22ed46d96ad2d3606a252ef",
+    "public/gyd_lab_v40.php": "d34b8b5999b7e89983bb5b24013adb2d106a6af8d2136a652661fc24fa2daf4f",
+    "public/gyd_lab_v41.php": "fe80e8a9ee9c429d3a934fe197a6b57d7d9ff91570a5775881cc1d6ee93a8562",
+    "public/assets/js/gyd_canjes_v39.js": "47e8ab9734ff9772636cc00ac74afc1a43c44af1a600d422e912200d8e72876b",
+    "public/assets/js/gyd_clientes_pos.js": "91f948120306d19332d1e1fe7f1095ca6c64aca8c3bc9ad8b55bbafea965247b",
+    "public/assets/js/gyd_lab_v41.js": "a63b0b995eec79681f346c3b7f8355ce14d4a20d557f2117cbaf325b3b7ca090",
+    "public/gyd_canjes_api.php": "cd511df094f55d5c325a440f4419991b8ccaef78534367c04421408591eb5c9c",
+    "public/gyd_clientes_api.php": "cb6a6544473964d8b76b3da8effc214e7e0b9b8bd8262e38c14d18b16be133fa",
+    "public/gyd_lab_v41_api.php": "12fc0084c334bbe64095d4b132ac0aeb10cf7d5eff0134ac145a5539a2aa5660",
+    "public/gyd_recompensas_api.php": "f82bbefaa57167483039d277722825bd11700919c2339e272dd3a383f288001e",
+    "app/helpers/gyd_rewards_catalogo_v38.php": "b9ef2912a5970dc6d6a672b870ab122b369442de997f53253a8cc23077b93051",
+    "app/helpers/gyd_rewards_lab_v40.php": "e2cf2014156d959764f51499c391c1213d9637f57ef6e637e49fc9bd88fdd95d",
+    "app/helpers/gyd_rewards_lab_v41.php": "2aef5872e6b6968b78891033d78577697d00617196a8dc553de33160e24d117f",
+    "app/helpers/gyd_rewards_lab_v43.php": "d39146fab1e261e5d78e28ddfd501fa4ffca8bbcf8c50ca430f8cc1a7585c537",
+    "app/helpers/gyd_rewards_reversiones_v37.php": "0285d598d2a5aa2158a4a5a930ed8d1018905ab0248b038f6bab2c8f4eae3832"
+}

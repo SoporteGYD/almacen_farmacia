@@ -1,0 +1,22 @@
+{
+  "app/helpers/gyd_retiros_autorizaciones.php": [
+    {
+      "old": "    $n=(int)gr_query($db,'SELECT COUNT(*) FROM gyd_retiros_intentos_autorizacion WHERE operador_id=? AND exitoso=0 AND creado_en>DATE_SUB(NOW(),INTERVAL 15 MINUTE)',[$operadorId])->fetchColumn();\n    if($n>=5)throw new DomainException('Demasiados intentos fallidos. Vuelve a intentar en 15 minutos.');\n",
+      "new": ""
+    },
+    {
+      "old": "    // Un autorizador bloqueado no puede ser probado desde múltiples cajas para evadir el límite.\n    if($autorId>0){\n        $fallos=(int)gr_query($db,'SELECT COUNT(*) FROM gyd_retiros_intentos_autorizacion WHERE autorizador_id=? AND exitoso=0 AND creado_en>DATE_SUB(NOW(),INTERVAL 15 MINUTE)',[$autorId])->fetchColumn();\n        if($fallos>=5)throw new DomainException('Esta cuenta autorizadora está temporalmente bloqueada para retiros. Espera 15 minutos.');\n    }\n",
+      "new": ""
+    }
+  ],
+  "app/helpers/gyd_retiro_caja_supervision.php": [
+    {
+      "old": "    $fallosOperador=(int)gr_query($db,\"SELECT COUNT(*) FROM gyd_retiros_intentos_autorizacion WHERE operador_id=? AND exitoso=0 AND creado_en>DATE_SUB(NOW(), INTERVAL 15 MINUTE)\",[$operadorId])->fetchColumn();\n    if ($fallosOperador>=5) throw new DomainException('Demasiados intentos fallidos. Espera 15 minutos.');\n",
+      "new": ""
+    },
+    {
+      "old": "    $fallosAutorizador=$autorizadorId>0?(int)gr_query($db,\"SELECT COUNT(*) FROM gyd_retiros_intentos_autorizacion WHERE autorizador_id=? AND exitoso=0 AND creado_en>DATE_SUB(NOW(), INTERVAL 15 MINUTE)\",[$autorizadorId])->fetchColumn():0;\n    if ($fallosAutorizador>=5) throw new DomainException('La cuenta autorizadora está bloqueada temporalmente para retiros. Espera 15 minutos.');\n",
+      "new": ""
+    }
+  ]
+}

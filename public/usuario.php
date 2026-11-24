@@ -11,8 +11,11 @@ $controller->verificarAdmin();
 
 $mensaje = '';
 $error = '';
+if (empty($_SESSION['gyd_usuarios_csrf'])) { $_SESSION['gyd_usuarios_csrf'] = bin2hex(random_bytes(32)); }
+$csrfUsuarios = (string) $_SESSION['gyd_usuarios_csrf'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!hash_equals($csrfUsuarios, (string)($_POST['csrf'] ?? ''))) { http_response_code(419); exit('Formulario de usuarios caducado. Actualiza la página y vuelve a intentar.'); }
     $accion = $_POST['accion'] ?? '';
 
     if ($accion === 'crear') {
@@ -49,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $usuarios = $controller->usuarios();
 $almacenes = $controller->almacenes();
+$opcionesPos = $controller->posOpciones();
 
 $moduleCss = 'productos';
 
@@ -235,9 +239,11 @@ include __DIR__ . '/../app/views/layouts/header.php';
 
 <div class="usuario-card">
     <h3 style="margin-bottom:18px;">Crear Usuario</h3>
+    <p style="font-size:13px;color:#456480;margin-top:-7px">Para personal de Compras, selecciona <strong>COMPRAS (ERP)</strong>. Cada empleado debe tener usuario, correo y contraseña propios. Podrá entrar a su panel de compras sin acceso al POS ni a la aplicación de inventario.</p>
 
     <form method="POST">
         <input type="hidden" name="accion" value="crear">
+            <input type="hidden" name="csrf" value="<?= e($csrfUsuarios) ?>">
 
         <div class="usuario-form-grid">
             <div class="usuario-field">
@@ -266,6 +272,10 @@ include __DIR__ . '/../app/views/layouts/header.php';
     <option value="CONSULTA">CONSULTA</option>
     <option value="ENCARGADO">ENCARGADO</option>
     <option value="JEFE_ALMACEN">JEFE DE ALMACÉN (SOLO RESURTIDOS Y TICKETS)</option>
+    <option value="CAJERO">CAJERO (SOLO PUNTO DE VENTA)</option>
+    <option value="COMPRAS">COMPRAS (ERP)</option>
+    <option value="CONTABILIDAD">CONTABILIDAD (CORTES DE CAJA)</option>
+    <option value="DIRECCION">DIRECCIÓN (ERP)</option>
     <option value="GERENTE">GERENTE</option>
     <option value="ADMINISTRADOR">ADMINISTRADOR</option>
 </select>
@@ -282,6 +292,8 @@ include __DIR__ . '/../app/views/layouts/header.php';
                     <?php endforeach; ?>
                 </select>
             </div>
+<div class="usuario-field" data-pos-field><label>Sucursal POS</label><select name="pos_sucursal_id" class="pos-sucursal"><option value="">Seleccionar farmacia</option><?php foreach(array_unique(array_column($opcionesPos,'sucursal_id')) as $sid): $item=current(array_filter($opcionesPos,fn($r)=>(int)$r['sucursal_id']===(int)$sid)); ?><option value="<?= (int)$sid ?>"><?= e($item['sucursal']) ?></option><?php endforeach; ?></select></div>
+<div class="usuario-field" data-pos-field><label>Número de caja asignada</label><input type="text" name="pos_numero_caja" class="pos-numero" inputmode="numeric" pattern="[0-9]{1,3}" maxlength="3" placeholder="Ej. 001 o 002" autocomplete="off"><small>Si no existe la caja en esa sucursal, se crea su registro de POS.</small></div>
         </div>
 
         <div style="margin-top:18px;">
@@ -300,7 +312,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
                 <th>Usuario</th>
                 <th>Correo</th>
                 <th>Rol</th>
-                <th>Almacén</th>
+                <th>Almacén / Farmacia POS</th>
                 <th>Estado</th>
                 <th>Password</th>
                 <th>Acciones</th>
@@ -314,7 +326,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
                     <td><?= e($usuario['usuario']) ?></td>
                     <td><?= e($usuario['correo']) ?></td>
                     <td><?= e($usuario['rol']) ?></td>
-                    <td><?= e($usuario['almacen_nombre'] ?? 'SIN ALMACÉN') ?></td>
+                    <td><?= ($usuario['rol']==='CAJERO') ? e(($usuario['pos_sucursal_nombre']??'SIN ASIGNAR').' · '.($usuario['pos_caja_nombre']??'SIN CAJA')) : e($usuario['almacen_nombre'] ?? 'SIN ALMACÉN') ?></td>
 
                     <td>
                         <?php if ((int)$usuario['estado'] === 1): ?>
@@ -327,6 +339,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
                     <td>
                         <form method="POST" class="password-form">
                             <input type="hidden" name="accion" value="password">
+            <input type="hidden" name="csrf" value="<?= e($csrfUsuarios) ?>">
                             <input type="hidden" name="usuario_id" value="<?= (int)$usuario['id'] ?>">
 
                             <input 
@@ -342,23 +355,25 @@ include __DIR__ . '/../app/views/layouts/header.php';
 
                     <td>
                         <div class="actions-row">
-                            <button 
+                            <button
                                 type="button"
-                                class="btn-usuario btn-edit"
-                                onclick="abrirModalEditar(
-                                    '<?= (int)$usuario['id'] ?>',
-                                    '<?= e($usuario['nombre']) ?>',
-                                    '<?= e($usuario['usuario']) ?>',
-                                    '<?= e($usuario['correo']) ?>',
-                                    '<?= e($usuario['rol']) ?>',
-                                    '<?= (int)($usuario['almacen_id'] ?? 0) ?>'
-                                )"
+                                class="btn-usuario btn-edit js-editar-usuario"
+                                data-id="<?= (int)$usuario['id'] ?>"
+                                data-nombre="<?= htmlspecialchars((string)($usuario['nombre'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                                data-usuario="<?= htmlspecialchars((string)($usuario['usuario'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                                data-correo="<?= htmlspecialchars((string)($usuario['correo'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                                data-rol="<?= htmlspecialchars((string)($usuario['rol'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                                data-almacen-id="<?= (int)($usuario['almacen_id'] ?? 0) ?>"
+                                data-pos-sucursal-id="<?= (int)($usuario['pos_sucursal_id'] ?? 0) ?>"
+                                data-pos-caja-id="<?= (int)($usuario['pos_caja_id'] ?? 0) ?>"
+                                data-pos-codigo="<?= htmlspecialchars((string)($usuario['pos_caja_codigo'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
                             >
                                 Editar
                             </button>
 
                             <form method="POST">
                                 <input type="hidden" name="accion" value="estado">
+            <input type="hidden" name="csrf" value="<?= e($csrfUsuarios) ?>">
                                 <input type="hidden" name="usuario_id" value="<?= (int)$usuario['id'] ?>">
                                 <input 
                                     type="hidden"
@@ -387,6 +402,7 @@ include __DIR__ . '/../app/views/layouts/header.php';
 
         <form method="POST">
             <input type="hidden" name="accion" value="editar">
+            <input type="hidden" name="csrf" value="<?= e($csrfUsuarios) ?>">
             <input type="hidden" name="usuario_id" id="edit_usuario_id">
 
             <div class="usuario-form-grid">
@@ -411,6 +427,10 @@ include __DIR__ . '/../app/views/layouts/header.php';
                         <option value="CONSULTA">CONSULTA</option>
                         <option value="ENCARGADO">ENCARGADO</option>
                         <option value="JEFE_ALMACEN">JEFE DE ALMACÉN (SOLO RESURTIDOS Y TICKETS)</option>
+    <option value="CAJERO">CAJERO (SOLO PUNTO DE VENTA)</option>
+    <option value="COMPRAS">COMPRAS (ERP)</option>
+    <option value="CONTABILIDAD">CONTABILIDAD (CORTES DE CAJA)</option>
+    <option value="DIRECCION">DIRECCIÓN (ERP)</option>
                         <option value="ADMINISTRADOR">ADMINISTRADOR</option>
                         <option value="GERENTE">GERENTE</option>
                     </select>
@@ -427,6 +447,8 @@ include __DIR__ . '/../app/views/layouts/header.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
+<div class="usuario-field" data-pos-field><label>Sucursal POS</label><select name="pos_sucursal_id" class="pos-sucursal"><option value="">Seleccionar farmacia</option><?php foreach(array_unique(array_column($opcionesPos,'sucursal_id')) as $sid): $item=current(array_filter($opcionesPos,fn($r)=>(int)$r['sucursal_id']===(int)$sid)); ?><option value="<?= (int)$sid ?>"><?= e($item['sucursal']) ?></option><?php endforeach; ?></select></div>
+<div class="usuario-field" data-pos-field><label>Número de caja asignada</label><input type="text" name="pos_numero_caja" class="pos-numero" inputmode="numeric" pattern="[0-9]{1,3}" maxlength="3" placeholder="Ej. 001 o 002" autocomplete="off"><small>Si no existe la caja en esa sucursal, se crea su registro de POS.</small></div>
             </div>
 
             <div style="margin-top:18px; display:flex; gap:10px;">
@@ -438,7 +460,37 @@ include __DIR__ . '/../app/views/layouts/header.php';
 </div>
 
 <script>
-function abrirModalEditar(id, nombre, usuario, correo, rol, almacenId) {
+function syncPosForm(form){
+ const isCash=form.querySelector('[name=rol]').value==='CAJERO';
+ const noAlmacen=['CAJERO','COMPRAS','CONTABILIDAD','DIRECCION','ADMINISTRADOR'].includes(form.querySelector('[name=rol]').value);
+ form.querySelectorAll('[data-pos-field]').forEach(el=>el.hidden=!isCash);
+ const almacen=form.querySelector('[name=almacen_id]');almacen.closest('.usuario-field').hidden=noAlmacen;
+ form.querySelector('.pos-sucursal').required=isCash;
+ form.querySelector('.pos-numero').required=isCash;
+}
+document.querySelectorAll('.usuario-card form, #modalEditarUsuario form').forEach(form=>{
+ if(!form.querySelector('.pos-sucursal'))return;
+ form.querySelector('[name=rol]').addEventListener('change',()=>syncPosForm(form));
+ form.querySelector('.pos-sucursal').addEventListener('change',()=>syncPosForm(form));
+ syncPosForm(form);
+});
+// Los datos de usuarios se leen como texto: nunca se interpretan como JavaScript.
+document.querySelectorAll('.js-editar-usuario').forEach((boton) => {
+    boton.addEventListener('click', () => {
+        const d = boton.dataset;
+        abrirModalEditar(
+            d.id,
+            d.nombre,
+            d.usuario,
+            d.correo,
+            d.rol,
+            Number(d.almacenId || 0),
+            Number(d.posSucursalId || 0),
+            d.posCodigo || ''
+        );
+    });
+});
+function abrirModalEditar(id, nombre, usuario, correo, rol, almacenId, posSucursalId, posCajaCodigo) {
     document.getElementById('edit_usuario_id').value = id;
     document.getElementById('edit_nombre').value = nombre;
     document.getElementById('edit_usuario').value = usuario;
@@ -446,6 +498,11 @@ function abrirModalEditar(id, nombre, usuario, correo, rol, almacenId) {
     document.getElementById('edit_rol').value = rol;
     document.getElementById('edit_almacen_id').value = almacenId > 0 ? almacenId : '';
 
+    const form=document.querySelector('#modalEditarUsuario form');
+    form.querySelector('.pos-sucursal').value=posSucursalId||'';
+    syncPosForm(form);
+    const n=String(posCajaCodigo).match(/([0-9]{1,3})$/);
+    form.querySelector('.pos-numero').value=n?String(Number(n[1])).padStart(3,'0'):'';
     document.getElementById('modalEditarUsuario').style.display = 'flex';
 }
 

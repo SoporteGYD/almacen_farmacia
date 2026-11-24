@@ -1,0 +1,60 @@
+{
+  "version": "V36",
+  "files": {
+    "app/helpers/gyd_clientes_rewards.php": {
+      "allowed": [],
+      "new": "45ac557d169ad61311dd7215acacbcb73e4ebddafede43e1a2a70e3a553e6ce1",
+      "payload": "app/helpers/gyd_clientes_rewards.php"
+    },
+    "app/models/PuntoVenta.php": {
+      "allowed": [
+        "b304be23ad0c134f3f3e40c55ca31ee1590de1d43eac838bb908c321cfa602ab"
+      ],
+      "new": "d9dbd3622524b56eafa33fea7748dfcfb5e9719e4de2a20b2bfee0830dee410c",
+      "payload": "app/models/PuntoVenta.php"
+    },
+    "public/assets/js/pos_gyd.js": {
+      "allowed": [
+        "1ff32652863ad8c451c30c300f58342a082117d2fa6ed0ec7ac986a61ab373b4"
+      ],
+      "new": "95968f0d9dc2465e91b5ba7f4865fd07442ad436d1b2771a6ac68a1eb09081eb",
+      "payload": "public/assets/js/pos_gyd.js"
+    },
+    "public/assets/js/gyd_clientes_pos.js": {
+      "allowed": [],
+      "new": "91f948120306d19332d1e1fe7f1095ca6c64aca8c3bc9ad8b55bbafea965247b",
+      "payload": "public/assets/js/gyd_clientes_pos.js"
+    },
+    "public/assets/css/gyd_clientes_pos.css": {
+      "allowed": [],
+      "new": "43c139ef59011c5f4b97701cc9c16afaf4aa2265522cc8648a732e7d97a5e8df",
+      "payload": "public/assets/css/gyd_clientes_pos.css"
+    },
+    "public/gyd_clientes_api.php": {
+      "allowed": [],
+      "new": "3aaf18dc00399e63cbcd8a617cb628672612eaef755b7c47244b7922161ece9f",
+      "payload": "public/gyd_clientes_api.php"
+    },
+    "public/gyd_clientes.php": {
+      "allowed": [],
+      "new": "0cbe987351f93d657ac0bc928fe7cbbda8be40ed85c8912d809206c1d00e5ea5",
+      "payload": "public/gyd_clientes.php"
+    }
+  },
+  "pos_versions": {
+    "v32": {
+      "allowed": [
+        "7131c451cc8ad4c0cd42cc4211693837c1c247742dfad8d3d07b9ea7694cbaf1"
+      ],
+      "new": "b3006b74574c51c1b3492a9318043790f4f8a70d5bca9447417f6fba0cd260a0",
+      "payload": "public/pos_v32.php"
+    },
+    "v33": {
+      "allowed": [
+        "9525fe634623ddd3a457c75e88d824130a417f24f56d175e626cf08e22727aa4"
+      ],
+      "new": "d1c450e3e0adb13b95b0cd54bc8a782265dbe73940a206d7477592557c479e7c",
+      "payload": "public/pos_v33.php"
+    }
+  }
+}

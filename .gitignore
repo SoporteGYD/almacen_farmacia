@@ -1,0 +1,12 @@
+/.git/
+/app/config/mail.local.php
+/app/config/erp_mail.key
+/.env*
+/backups/
+/respaldo*/
+*.sql.gz
+*.log
+*.backup*
+*.bak
+*.tmp
+/vendor/.cache/

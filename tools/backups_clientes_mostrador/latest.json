@@ -1,0 +1,11 @@
+{
+    "dir": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools/backups_clientes_mostrador/20261114_130918_181932",
+    "archivos": {
+        "app/helpers/gyd_clientes_rewards.php": true,
+        "public/gyd_clientes_api.php": true,
+        "public/assets/js/gyd_clientes_pos.js": true,
+        "public/assets/css/gyd_clientes_pos.css": true,
+        "public/pos.php": true,
+        "app/helpers/gyd_clientes_mostrador.php": false
+    }
+}

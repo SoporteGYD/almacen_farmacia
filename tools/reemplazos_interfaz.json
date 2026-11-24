@@ -1,0 +1,109 @@
+{
+  "nombre": "G&D · Etiquetas de versión ocultas en interfaz",
+  "compatibilidad": [
+    "V36",
+    "V37",
+    "V38",
+    "V39",
+    "V40",
+    "V41",
+    "V42",
+    "V43"
+  ],
+  "descripcion": "Reemplazos exactos de textos públicos; sin cambio de URLs, tablas, columnas ni funciones internas",
+  "reemplazos": {
+    "public/gyd_canjes.php": {
+      "<title>G&D · Solicitudes de recompensas V39</title>": "<title>G&D · Solicitudes de recompensas</title>",
+      "<h1>Recompensas desde el POS <span>V39</span></h1>": "<h1>Recompensas desde el POS</h1>",
+      "Laboratorio de margen V40": "Laboratorio de márgenes",
+      "Canjear premios (laboratorio V43)": "Canjes de prueba",
+      "Canjear premios (laboratorio V42)": "Canjes de prueba",
+      "Editar márgenes V40": "Editar márgenes",
+      "Esta V39 únicamente simula": "Este módulo únicamente simula",
+      "los artículos aprobados en V38": "los artículos aprobados en el catálogo",
+      "para canjear productos con inventario virtual utiliza <a href=\"gyd_lab_v41.php\">Laboratorio V42</a>": "para canjear productos con inventario virtual utiliza el <a href=\"gyd_lab_v41.php\">laboratorio de canjes</a>",
+      "Laboratorio V42": "Laboratorio de canjes",
+      "Abrir canjes virtuales V43 con productos disponibles": "Abrir canjes virtuales con productos disponibles"
+    },
+    "public/gyd_clientes.php": {
+      "<title>G&D | Control de clientes y puntos · V37</title>": "<title>G&D | Control de clientes y puntos</title>",
+      " <small style=\"font-size:12px\">V38</small>": "",
+      "Auditoría de devoluciones · V37": "Auditoría de devoluciones"
+    },
+    "public/gyd_recompensas.php": {
+      "<title>G&D · Recompensas V38</title>": "<title>G&D · Catálogo de recompensas</title>",
+      "<h1>Catálogo de recompensas <small>V38</small></h1>": "<h1>Catálogo de recompensas</h1>",
+      "Precanjes V39": "Solicitudes de recompensas"
+    },
+    "public/gyd_lab_v40.php": {
+      "<title>G&D · Laboratorio de clientes, inventario y rentabilidad V40</title>": "<title>G&D · Laboratorio de clientes, inventario y rentabilidad</title>",
+      "<h1>Laboratorio de recompensas <small>V40</small></h1>": "<h1>Laboratorio de recompensas</h1>",
+      "Canjear premios V41 (pruebas)": "Canjes de prueba",
+      "Solicitudes V39": "Solicitudes de recompensas",
+      "Catálogo V38": "Catálogo de recompensas",
+      "desde el POS V39": "desde el punto de venta"
+    },
+    "public/gyd_lab_v41.php": {
+      "<title>G&D · Canjes de prueba V41</title>": "<title>G&D · Canjes de prueba</title>",
+      "<title>G&D · Canjes virtuales de prueba V41</title>": "<title>G&D · Canjes de prueba</title>",
+      "<h1>Canjes de laboratorio <span>V41</span></h1>": "<h1>Canjes de laboratorio</h1>",
+      "<title>G&D · Canjes de prueba V42</title>": "<title>G&D · Canjes de prueba</title>",
+      "<title>G&D · Canjes virtuales de prueba V42</title>": "<title>G&D · Canjes de prueba</title>",
+      "<h1>Canjes de laboratorio <span>V42</span></h1>": "<h1>Canjes de laboratorio</h1>",
+      "<title>G&D · Canjes de prueba V43</title>": "<title>G&D · Canjes de prueba</title>",
+      "<title>G&D · Canjes virtuales de prueba V43</title>": "<title>G&D · Canjes de prueba</title>",
+      "<h1>Canjes de laboratorio <span>V43</span></h1>": "<h1>Canjes de laboratorio</h1>",
+      "Editar inventario V40": "Editar inventario",
+      "Solicitudes V39": "Solicitudes de recompensas",
+      "solamente dentro de V41": "solamente dentro del laboratorio",
+      "El POS V39 sigue bloqueado para canje definitivo.": "El punto de venta mantiene bloqueado el canje definitivo.",
+      "puntos V41": "puntos virtuales"
+    },
+    "public/assets/js/gyd_canjes_v39.js": {
+      "Administración debe aprobarlas en V38.": "Administración debe aprobarlas en el catálogo de recompensas."
+    },
+    "public/assets/js/gyd_clientes_pos.js": {
+      "Verifica instalación V36.": "Verifica que esté instalado el control de clientes."
+    },
+    "public/assets/js/gyd_lab_v41.js": {
+      "o configura uno en V40.": "o configura uno desde el editor de inventario.",
+      "No se pudo abrir V41: ": "No se pudo abrir el laboratorio: ",
+      "Nuevos premios V41: ": "Nuevos premios virtuales: ",
+      "Aprobados adicionales para solicitudes V39: ": "Aprobados adicionales para solicitudes: "
+    },
+    "public/gyd_canjes_api.php": {
+      "No está disponible en V39.": "No está disponible en este módulo."
+    },
+    "public/gyd_clientes_api.php": {
+      "Módulo V36 exclusivo para prueba:3307": "Control de clientes disponible sólo en el entorno de pruebas"
+    },
+    "public/gyd_lab_v41_api.php": {
+      "Error del laboratorio V41.": "Error del laboratorio de recompensas."
+    },
+    "public/gyd_recompensas_api.php": {
+      "Error del catálogo V38.": "Error del catálogo de recompensas."
+    },
+    "app/helpers/gyd_rewards_catalogo_v38.php": {
+      "El catálogo V38 sólo opera en prueba:3307.": "El catálogo sólo está disponible en el entorno de pruebas."
+    },
+    "app/helpers/gyd_rewards_lab_v40.php": {
+      "costo mínimo según V38.": "costo mínimo del programa.",
+      "cliente ficticio activo de V40.": "cliente ficticio activo del laboratorio.",
+      "AJUSTE DE DEMOSTRACIÓN V40 -": "AJUSTE DE DEMOSTRACIÓN -"
+    },
+    "app/helpers/gyd_rewards_lab_v41.php": {
+      "Puedes agregar otros manualmente en V40.": "Puedes agregar otros manualmente desde el editor de inventario."
+    },
+    "app/helpers/gyd_rewards_lab_v43.php": {
+      "Ya tiene 20 o más premios V43.": "Ya tiene 20 o más premios de prueba."
+    },
+    "app/helpers/gyd_rewards_lote_pruebas_v42.php": {
+      "V42: aprobación de DEMOSTRACIÓN en prueba:3307.": "Aprobación de demostración en el entorno de pruebas.",
+      "V42: habilitado únicamente en prueba:3307.": "Habilitado únicamente en el entorno de pruebas.",
+      "Alta masiva para simulación V39 en prueba:3307;": "Alta masiva para simulación en el entorno de pruebas;"
+    },
+    "app/helpers/gyd_rewards_reversiones_v37.php": {
+      "Reverso auditado V37 de cancelación total;": "Reverso auditado de cancelación total;"
+    }
+  }
+}

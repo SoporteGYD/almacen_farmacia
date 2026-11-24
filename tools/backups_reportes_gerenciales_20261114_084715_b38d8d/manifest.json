@@ -1,0 +1,18 @@
+{
+    "app\/helpers\/gyd_reportes_gerenciales.php": {
+        "existia": false,
+        "sha256": "f96a9be8646256f85278eebc97117441f3cd4b02175cc32641a5141849c70244"
+    },
+    "public\/gyd_reportes_gerenciales.php": {
+        "existia": false,
+        "sha256": "af3927e168278676bb747a09fc2e08f7bf9f1d0c2f542459824cb4ed0ef05da4"
+    },
+    "public\/assets\/css\/gyd_reportes_gerenciales.css": {
+        "existia": false,
+        "sha256": "b87884b713afc76d327c2f1a7f5d5a9f0ad3b468bd5b68160daab7e321943f8d"
+    },
+    "public\/gyd_panel_cajas.php": {
+        "existia": true,
+        "sha256": "b07cebe7a7de60a13ef9768ec55cebdc4f72272485d6acda03b49cebee93ad1d"
+    }
+}

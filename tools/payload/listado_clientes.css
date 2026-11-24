@@ -1,0 +1,19 @@
+/* Inicio: clientes en tabla y venta de mostrador */
+.gyd-client-dialog{width:min(980px,100%)}
+.gyd-client-results{display:block;max-height:50vh;min-height:130px;overflow:auto;border:1px solid #d5e2ee;border-radius:10px;margin-top:12px;background:#fff}
+.gyd-client-table-wrap{width:100%;overflow-x:auto}
+.gyd-client-table{width:100%;min-width:640px;border-collapse:collapse;font-size:13px}
+.gyd-client-table th{position:sticky;top:0;background:#15568e;color:white;text-align:left;padding:11px 9px;white-space:nowrap;z-index:1}
+.gyd-client-table td{padding:10px 9px;border-bottom:1px solid #e1eaf1;color:#234157;vertical-align:middle}
+.gyd-client-table tr:hover td{background:#f2f8fd}
+.gyd-client-table td strong{font-size:13px}
+.gyd-client-table td small{display:block;margin-top:4px;color:#467159;font-size:11px;font-weight:700}
+.gyd-client-walkin td{background:#ecf9f1!important}
+.gyd-client-pick{background:#176ba8!important;color:white!important;border:0!important;border-radius:7px!important;padding:8px 12px!important;font-weight:700;cursor:pointer}
+.gyd-client-pick:hover{background:#0a4a7b!important}
+.gyd-client-pager{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:9px;padding:9px 12px;background:#eff6fc;color:#244d70;font-size:12px}
+.gyd-client-pager span:last-child{display:flex;gap:6px}
+.gyd-client-pager button{background:#fff;color:#165a92;border:1px solid #c3d9ea;border-radius:6px;padding:7px 10px;cursor:pointer}
+.gyd-client-pager button:disabled{opacity:.35;cursor:not-allowed}
+@media(max-width:650px){.gyd-client-dialog{padding:14px}.gyd-client-results{max-height:55vh}.gyd-client-pager{justify-content:center}}
+/* Fin: clientes en tabla y venta de mostrador */

@@ -1,0 +1,10 @@
+{
+  "app/helpers/pos_inteligente.php": {
+    "before": "fcdfea76881cc79966ee1e21e96f238b85d0409d0065f57fe22309fd5c6a667f",
+    "after": "57a9c5b43b24933eb973996c7f427aab8486d81c434e80f206756a9f93dd209f"
+  },
+  "app/models/PuntoVenta.php": {
+    "before": "2fb1e6606fc7b1e275b95d7f93d97be46d8b08a6c6410297cf8e7a4145d4fca1",
+    "after": "8e974b99c53ccee5f8a10f1cd4a9209751ba9cdfcf859d00534bf481ade8d93f"
+  }
+}

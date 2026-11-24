@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../app/helpers/auth.php';
+// GYD_ACL_CONTROL_CENTRAL_NOTIFICACIONES
+requireLogin();
 require_once __DIR__ . '/../app/controllers/ResurtidoController.php';
 
 header('Content-Type: application/json; charset=utf-8');

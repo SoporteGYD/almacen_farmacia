@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../models/Producto.php';
 require_once __DIR__ . '/../helpers/audit.php';
+require_once __DIR__ . '/../helpers/erp_productos_unicos.php';
 
 class ProductoController
 {
@@ -197,12 +198,10 @@ class ProductoController
             ];
         }
 
-        if ($this->productoModel->existsByCodigo($data['codigo'], $id)) {
-            return [
-                'success' => false,
-                'message' => 'Ya existe un producto con ese código en el catálogo.'
-            ];
-        }
+        // Verifica el catálogo compartido: código, barras, descripción y equivalencias.
+        $pdoUnicos = (new Database())->connect();
+        $existente = gyd_producto_duplicado($pdoUnicos, (string)$data['codigo'], (string)(($data['codigo_barras'] ?? '') ?: $data['codigo']), (string)$data['descripcion'], $id);
+        if ($existente) return ['success'=>false,'message'=>gyd_duplicado_mensaje($existente)];
 
         return [
             'success' => true
@@ -437,15 +436,8 @@ class ProductoController
             $existencia = 0;
         }
 
-        $producto = $this->productoModel->findByCodigo($codigo);
-        $ubicacionAnterior = $producto
-            ? $this->productoModel->getUbicacionExistencia(
-                (int) $producto['id'],
-                $sucursal,
-                $ubicacion
-            )
-            : null;
-
+        // La importación usa la ubicación por defecto del modelo; no existe
+        // aquí una variable $ubicacion. Evitar consultas con datos indefinidos.
         $ok = $this->productoModel->actualizarExistenciaPorCodigo(
             $codigo,
             $sucursal,
@@ -465,7 +457,11 @@ class ProductoController
         $codigo = trim($postData['codigo'] ?? '');
         $sucursal = strtoupper(trim($postData['sucursal'] ?? ''));
         $ubicacion = strtoupper(trim($postData['ubicacion'] ?? ''));
-        $existencia = (int)($postData['existencia'] ?? 0);
+        $existenciaTexto = trim((string) ($postData['existencia'] ?? ''));
+        if (!preg_match('/^\d{1,9}$/D', $existenciaTexto)) {
+            return ['success' => false, 'message' => 'Existencia inválida: utiliza un número entero de 0 a 999999999.'];
+        }
+        $existencia = (int) $existenciaTexto;
 
         if ($codigo === '') {
             return [
@@ -485,9 +481,15 @@ class ProductoController
             $ubicacion = 'SIN UBICACION';
         }
 
-        if ($existencia < 0) {
-            $existencia = 0;
+        $producto = $this->productoModel->findByCodigo($codigo);
+        if (!$producto) {
+            return ['success' => false, 'message' => 'El código no existe en el catálogo.'];
         }
+        $ubicacionAnterior = $this->productoModel->getUbicacionExistencia(
+            (int) $producto['id'],
+            $sucursal,
+            $ubicacion
+        );
 
         $ok = $this->productoModel->actualizarExistenciaPorCodigo(
             $codigo,
@@ -496,7 +498,7 @@ class ProductoController
             $ubicacion
         );
 
-        if ($ok && $producto) {
+        if ($ok) {
             $ubicacionNueva = $this->productoModel->getUbicacionExistencia(
                 (int) $producto['id'],
                 $sucursal,
@@ -554,7 +556,11 @@ class ProductoController
         $sucursal = strtoupper(trim($postData['sucursal'] ?? ''));
         $ubicacionAnterior = strtoupper(trim($postData['ubicacion_anterior'] ?? ''));
         $ubicacionNueva = strtoupper(trim($postData['ubicacion_nueva'] ?? ''));
-        $existencia = (int)($postData['existencia'] ?? 0);
+        $existenciaTexto = trim((string) ($postData['existencia'] ?? ''));
+        if (!preg_match('/^\d{1,9}$/D', $existenciaTexto)) {
+            return ['success' => false, 'message' => 'Existencia inválida: utiliza un número entero de 0 a 999999999.'];
+        }
+        $existencia = (int) $existenciaTexto;
 
         // Validaciones
         if ($productoId <= 0) {
@@ -577,10 +583,6 @@ class ProductoController
 
         if ($ubicacionNueva === '') {
             $ubicacionNueva = 'SIN UBICACION';
-        }
-
-        if ($existencia < 0) {
-            $existencia = 0;
         }
 
         // Primero, verificar si la ubicación existe

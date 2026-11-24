@@ -1,0 +1,111 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/../app/helpers/auth.php';
+require_once __DIR__.'/../app/config/database.php';
+require_once __DIR__.'/../app/helpers/erp_historial_costos_catalogo.php';
+requireLogin();
+$u=currentUser()??[];
+if(!in_array(strtoupper(trim((string)($u['rol_original']??$u['rol']??''))),['ADMIN','ADMINISTRADOR','COMPRAS'],true)){
+ http_response_code(403);exit('Sin permiso para consultar costos y rentabilidad.');
+}
+$mensaje='';$datos=[];$kpis=[];$total=0;$pagina=1;$paginas=1;$sucursales=[];$proveedores=[];$ultima=[];$previa=[];$resumenProv=[];$tendencia=[];
+try {
+ $db=(new Database())->connect();
+ $f=gd_hc_filtros($_GET);
+ $hasFact=gd_hc_tabla($db,'erp_facturas')&&gd_hc_tabla($db,'erp_facturas_detalle');
+ $hasOc=gd_hc_tabla($db,'erp_ordenes_compra')&&gd_hc_tabla($db,'erp_ordenes_compra_detalle');
+ $hasPos=gd_hc_tabla($db,'pos_precios')&&gd_hc_tabla($db,'pos_sucursales');
+ if(gd_hc_tabla($db,'pos_sucursales'))$sucursales=$db->query('SELECT id,nombre FROM pos_sucursales ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+ if(!in_array($f['sucursal'],array_map(static fn($r)=>(int)$r['id'],$sucursales),true))$f['sucursal']=0;
+ $proveedores=$db->query('SELECT id,nombre FROM proveedores ORDER BY nombre')->fetchAll(PDO::FETCH_ASSOC);
+ [$from,$args]=gd_hc_consulta($f,$hasFact,$hasOc,$hasPos);
+ if($from===null){$mensaje='No se encontraron las tablas de órdenes o facturas requeridas para esta fuente. Revisa la estructura de la base de datos.';}
+ else {
+   $total=(int)gd_hc_exec($db,'SELECT COUNT(*)'.$from,$args)->fetchColumn();
+   // Indicadores solo de facturas: las órdenes emitidas son propuestas, no costos facturados.
+   $kpis=gd_hc_exec($db,"SELECT
+      COALESCE(SUM(CASE WHEN x.origen='FACTURA' THEN x.cantidad ELSE 0 END),0) piezas_facturadas,
+      COALESCE(SUM(CASE WHEN x.origen='FACTURA' THEN x.cantidad*x.costo ELSE 0 END),0) importe_facturado,
+      SUM(CASE WHEN x.origen='FACTURA' THEN x.cantidad*x.costo ELSE 0 END)/NULLIF(SUM(CASE WHEN x.origen='FACTURA' THEN x.cantidad ELSE 0 END),0) promedio_ponderado_periodo,
+      COUNT(DISTINCT CASE WHEN x.origen='FACTURA' THEN CONCAT('F:',x.doc_id) END) facturas,
+      COUNT(DISTINCT CASE WHEN x.origen='OC' THEN CONCAT('O:',x.doc_id) END) ordenes
+      ".$from,$args)->fetch(PDO::FETCH_ASSOC)?:[];
+   $formato=(string)($_GET['formato']??'');
+   $sql='SELECT x.*'.$from.' ORDER BY x.fecha DESC,x.creado_en DESC,x.origen ASC,x.doc_id DESC,x.linea_id DESC';
+   if($formato==='csv'){
+       header('Content-Type: text/csv; charset=utf-8');
+       header('Content-Disposition: attachment; filename="gyd_historial_costos_'.date('Ymd_His').'.csv"');
+       header('Cache-Control: no-store, private');
+       $out=fopen('php://output','wb');fwrite($out,"\xEF\xBB\xBF");
+       fputcsv($out,['Origen','Fecha','Folio','Referencia proveedor','Estado','Proveedor','Destino','Código','Descripción','Piezas','Costo unitario documento','Importe piezas por costo','Último costo actual','Promedio actual','Precio venta actual','Utilidad teórica actual por pieza','Margen teórico actual %','Ganancia sobre costo %','Variación vs último costo actual %']);
+       $st=gd_hc_exec($db,$sql,$args);
+       while($r=$st->fetch(PDO::FETCH_ASSOC)){
+           $r=gd_hc_datos($r);
+           $linea=[$r['origen'],$r['fecha'],$r['folio'],$r['referencia'],$r['estado'],$r['proveedor'],$r['destino'],"'".$r['codigo'],$r['descripcion'],$r['cantidad'],$r['costo'],round((float)$r['cantidad']*(float)$r['costo'],4),$r['costo_ultimo_actual'],$r['costo_promedio_actual'],$r['precio_venta_actual'],$r['utilidad_teorica'],$r['margen_teorico'],$r['markup_teorico'],$r['variacion_ultimo_actual']];
+           fputcsv($out,array_map('gd_hc_export_text',$linea));
+       }
+       fclose($out);exit;
+   }
+   $size=40;$paginas=max(1,(int)ceil($total/$size));$pagina=min($f['pagina'],$paginas);
+   $dataSql=$sql.' LIMIT '.(int)$size.' OFFSET '.(int)(($pagina-1)*$size);
+   $st=gd_hc_exec($db,$dataSql,$args);
+   while($r=$st->fetch(PDO::FETCH_ASSOC))$datos[]=gd_hc_datos($r);
+   if($f['producto_id']>0&&$hasFact){
+       $extra='';$param=[$f['producto_id']];
+       if($f['proveedor']>0){$extra=' AND f.proveedor_id=?';$param[]=$f['proveedor'];}
+       $st=$db->prepare('SELECT f.fecha_factura fecha,f.numero_factura folio,pr.nombre proveedor,d.costo_unitario costo, d.cantidad_facturada piezas
+         FROM erp_facturas_detalle d JOIN erp_facturas f ON f.id=d.factura_id JOIN proveedores pr ON pr.id=f.proveedor_id
+         WHERE d.producto_id=?'.$extra.' ORDER BY f.fecha_factura DESC,f.id DESC,d.id DESC LIMIT 2');
+       $st->execute($param);$last2=$st->fetchAll(PDO::FETCH_ASSOC);$ultima=$last2[0]??[];$previa=$last2[1]??[];
+       $sqlT='SELECT f.fecha_factura fecha,f.numero_factura folio,pr.nombre proveedor,d.costo_unitario costo FROM erp_facturas_detalle d JOIN erp_facturas f ON f.id=d.factura_id JOIN proveedores pr ON pr.id=f.proveedor_id WHERE d.producto_id=?'.$extra.' ORDER BY f.fecha_factura DESC,f.id DESC,d.id DESC LIMIT 12';
+       $qT=$db->prepare($sqlT);$qT->execute($param);$tendencia=array_reverse($qT->fetchAll(PDO::FETCH_ASSOC));
+   }
+   // Sumar por proveedor solo cifras de facturas, nunca mezclar cotizaciones.
+   // Agrupar facturas por proveedor, manteniendo cantidades e importes separados de los pedidos.
+   $agrSql="SELECT z.proveedor,COUNT(DISTINCT z.doc_id) facturas, SUM(z.cantidad) piezas, SUM(z.cantidad*z.costo) importe, COUNT(DISTINCT z.producto_id) productos FROM (SELECT x.*".$from.") z WHERE z.origen='FACTURA' GROUP BY z.proveedor_id,z.proveedor ORDER BY importe DESC LIMIT 15";
+   $resumenProv=gd_hc_exec($db,$agrSql,$args)->fetchAll(PDO::FETCH_ASSOC);
+   if($formato==='imprimir'){
+      ?><!doctype html><html lang="es"><head><meta charset="utf-8"><title>G&D · Histórico de compras</title><style>@page{size:landscape;margin:8mm}body{font:11px Arial}h1{color:#164674}table{border-collapse:collapse;width:100%}td,th{border:1px solid #cad5e2;padding:5px;text-align:left}th{background:#164674;color:white}.btn{margin:20px}@media print{.btn{display:none}}.small{font-size:10px}</style></head><body><button class="btn" onclick="window.print()">Imprimir / Guardar como PDF</button><h1>G&D · Historial documental de costos</h1><p>Fecha: <?=date('d/m/Y H:i')?>. Origen: <?=gd_hc_e($f['fuente'])?>. Pág. <?=$pagina?>/<?=$paginas?>.</p><p class="small">Costo registrado en OC ≠ costo facturado. Márgenes estimados con el precio de venta vigente, sin descontar impuestos ni gastos.</p><table><thead><tr><th>Origen</th><th>Fecha</th><th>Documento</th><th>Proveedor</th><th>Código</th><th>Producto</th><th>Piezas</th><th>Costo u.</th><th>Precio actual</th><th>Margen estimado</th></tr></thead><tbody><?php foreach($datos as $r):?><tr><td><?=gd_hc_e($r['origen'])?></td><td><?=gd_hc_e($r['fecha'])?></td><td><?=gd_hc_e($r['referencia'])?></td><td><?=gd_hc_e($r['proveedor'])?></td><td><?=gd_hc_e($r['codigo'])?></td><td><?=gd_hc_e($r['descripcion'])?></td><td><?=number_format((float)$r['cantidad'])?></td><td><?=gd_hc_mon($r['costo'],4)?></td><td><?=gd_hc_mon($r['precio_venta_actual'])?></td><td><?=($r['margen_teorico']===null?'—':number_format($r['margen_teorico'],2).'%')?></td></tr><?php endforeach;?></tbody></table>
+<?php /* GYD_NAV_ROLE_V1 */
+$__gydNavigationAccount = function_exists('isLoggedIn') && isLoggedIn() && function_exists('currentUser')
+    ? (currentUser() ?: []) : [];
+$__gydNavigationRole = strtoupper(trim((string)($__gydNavigationAccount['rol_original'] ?? $__gydNavigationAccount['rol'] ?? '')));
+$__gydNavigationAllowed = in_array($__gydNavigationRole, ['DIRECCION','ADMINISTRADOR','ADMIN','COMPRAS'], true);
+if (!defined('GYD_HIDE_GLOBAL_NAV') && $__gydNavigationAllowed):
+$__gydNavigationHome = $__gydNavigationRole === 'COMPRAS' ? 'erp_compras_inicio.php' : 'dashboard.php';
+?>
+<link rel="stylesheet" href="assets/css/gyd_nav_global.css?v=5">
+<script>window.GYD_NAV_ENABLED=true;window.GYD_NAV_HOME=<?=json_encode($__gydNavigationHome, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;window.GYD_NAV_POS='pos.php';</script>
+<script src="assets/js/gyd_nav_global.js?v=5"></script>
+<?php endif; unset($__gydNavigationAccount,$__gydNavigationRole,$__gydNavigationAllowed,$__gydNavigationHome); ?>
+</body></html><?php exit;
+   }
+ }
+}catch(InvalidArgumentException $e){$mensaje=$e->getMessage();$f=['fuente'=>'FACTURA','q'=>'','desde'=>'','hasta'=>'','producto_id'=>0,'proveedor'=>0,'sucursal'=>0,'pagina'=>1];}
+catch(Throwable $e){error_log('Historial de costos G&D: '.$e->getMessage());$mensaje='No se pudo cargar el historial. Comprueba la estructura de facturas, OC y los permisos de lectura en MariaDB.';$f=$f??['fuente'=>'FACTURA','q'=>'','desde'=>'','hasta'=>'','producto_id'=>0,'proveedor'=>0,'sucursal'=>0,'pagina'=>1];}
+$baseQuery=$_GET;unset($baseQuery['pagina'],$baseQuery['formato']);
+function gd_hc_link(array $base,array $new):string{return '?'.http_build_query(array_merge($base,$new));}
+?><!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ERP G&D | Historial de costos por compra</title><style>
+:root{font-family:system-ui,'Segoe UI',Arial,sans-serif;background:#eef3f9;color:#173b5c}*{box-sizing:border-box}body{margin:0}header{background:#143f6b;color:white;padding:18px clamp(15px,4vw,35px);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}header h1{font-size:22px;margin:0}header p{font-size:13px;color:#d5e3f4;margin:5px 0 0}header a{color:white;border:1px solid #a5c0dc;border-radius:8px;text-decoration:none;padding:10px}main{max-width:1600px;margin:auto;padding:18px}.card{background:white;border-radius:14px;padding:17px;margin:0 0 15px;border:1px solid #dfe7ef;box-shadow:0 4px 17px #14416e0b}.note{background:#fdf4e5;border:1px solid #f0d39b;border-radius:9px;padding:12px;font-size:13px}.error{color:#a52636;font-weight:700}.grid{display:grid;grid-template-columns:repeat(6,minmax(145px,1fr));gap:12px}label{display:grid;gap:5px;font-size:12px;font-weight:700}input,select{width:100%;min-height:40px;border:1px solid #bacbde;border-radius:8px;padding:8px;font:inherit}button,.btn{display:inline-block;background:#175fae;color:white;border:0;border-radius:8px;padding:10px 13px;text-decoration:none;font:600 13px system-ui;cursor:pointer}.btn.alt{background:#e7f0fb;color:#16528c}.btn.green{background:#16815c}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px}.kpi{background:#edf4fc;padding:13px;border-radius:9px}.kpi b{display:block;font-size:22px;color:#164b80}.kpi span{font-size:12px;color:#5a7290}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;min-width:1120px}th{background:#174b7a;color:white;text-align:left;white-space:nowrap;padding:11px}td{padding:10px;border-bottom:1px solid #e3ebf4;vertical-align:top}tr:hover{background:#f7faff}.muted{color:#637b92;font-size:12px}.pill{display:inline-block;border-radius:20px;padding:4px 9px;font-size:11px;font-weight:700;background:#dcebfa;color:#125b94}.pill.oc{background:#fff0ca;color:#885100}.negative{color:#ad283c;font-weight:700}.positive{color:#177e56;font-weight:700}.paging{display:flex;gap:14px;align-items:center;justify-content:flex-end;margin-top:15px}.paging a{color:#155cab}.cols{display:grid;grid-template-columns:repeat(2,minmax(250px,1fr));gap:12px}.bar{height:9px;border-radius:6px;background:#e7eff6;overflow:hidden}.bar>div{height:100%;background:#326ec1}.help{color:#526b80;font-size:13px}@media(max-width:1000px){.grid{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.grid,.cols{grid-template-columns:1fr}main{padding:9px}} 
+</style></head><body><header><div><h1>Historial de costos por producto y proveedor</h1><p>ERP G&D · Documentos de compra · Consulta sin cambios de inventario</p></div><div><a href="erp_catalogo_finanzas.php">← Costos y rentabilidad</a> <a href="erp_catalogo_maestro.php">Catálogo Maestro</a></div> <a href="erp_catalogo_comparar_proveedores.php">Comparador de proveedores</a></header><main>
+<div class="note"><b>Importante:</b> los costos de facturas corresponden a documentos registrados. Los de órdenes de compra son costos solicitados, no compras confirmadas. Los márgenes son <b>estimaciones usando el precio público actual</b> de la sucursal seleccionada, sin separar IVA, IEPS ni gastos; no representan margen histórico real.</div>
+<?php if($mensaje):?><div class="card error" role="alert"><?=gd_hc_e($mensaje)?></div><?php endif;?>
+<section class="card"><h2>Buscar historial</h2><form method="get"><div class="grid">
+<label>Código, descripción o número de factura<input name="q" value="<?=gd_hc_e($f['q'])?>" placeholder="Código, producto, folio…"></label>
+<label>Producto específico (ID)<input type="number" name="producto_id" min="0" value="<?=$f['producto_id']?:''?>" placeholder="Opcional"></label>
+<label>Proveedor<select name="proveedor"><option value="0">Todos</option><?php foreach($proveedores as $p):?><option value="<?=(int)$p['id']?>" <?=$f['proveedor']===(int)$p['id']?'selected':''?>><?=gd_hc_e($p['nombre'])?></option><?php endforeach;?></select></label>
+<label>Origen del documento<select name="fuente"><option value="FACTURA" <?=$f['fuente']==='FACTURA'?'selected':''?>>Facturas registradas</option><option value="OC" <?=$f['fuente']==='OC'?'selected':''?>>Órdenes emitidas (costos propuestos)</option><option value="AMBAS" <?=$f['fuente']==='AMBAS'?'selected':''?>>Ambos, diferenciados</option></select></label>
+<label>Desde<input type="date" name="desde" value="<?=gd_hc_e($f['desde'])?>"></label>
+<label>Hasta<input type="date" name="hasta" value="<?=gd_hc_e($f['hasta'])?>"></label>
+<label>Precio público para estimación<select name="sucursal"><option value="0">Precio base del catálogo</option><?php foreach($sucursales as $s):?><option value="<?=(int)$s['id']?>" <?=$f['sucursal']===(int)$s['id']?'selected':''?>><?=gd_hc_e($s['nombre'])?></option><?php endforeach;?></select></label>
+</div><div class="actions"><button type="submit">Consultar</button><button type="submit" name="formato" value="csv" class="btn green">Exportar historial CSV (Excel)</button><button type="submit" name="formato" value="imprimir" formtarget="_blank" class="btn alt">Imprimir página / PDF</button><a class="btn alt" href="erp_catalogo_historial_costos.php">Limpiar</a></div></form></section>
+<?php if(!$mensaje):?>
+<section class="card"><h2>Indicadores del periodo seleccionado</h2><div class="kpis"><div class="kpi"><b><?=number_format((int)($kpis['facturas']??0))?></b><span>Facturas distintas</span></div><div class="kpi"><b><?=number_format((int)($kpis['piezas_facturadas']??0))?></b><span>Piezas facturadas</span></div><div class="kpi"><b><?=$f['producto_id']>0?gd_hc_mon($kpis['promedio_ponderado_periodo']??null,4):'—'?></b><span>Costo medio facturado (solo al seleccionar un producto)</span></div><div class="kpi"><b><?=gd_hc_mon($kpis['importe_facturado']??null)?></b><span>Importe calculado: piezas × costo unitario</span></div></div><p class="help">Documentos OC encontrados: <?=number_format((int)($kpis['ordenes']??0))?>. El costo medio se calcula únicamente para un producto específico; no se promedian precios de productos distintos. No sustituye el costo promedio ponderado del inventario.</p></section>
+<?php if($ultima):?><section class="card"><h2>Comparar últimas facturas del producto seleccionado</h2><div class="cols"><div><b>Última factura</b><p><?=gd_hc_e($ultima['fecha'])?> · <?=gd_hc_e($ultima['proveedor'])?> · <?=gd_hc_e($ultima['folio'])?></p><strong><?=gd_hc_mon($ultima['costo'],4)?> por pieza</strong></div><div><b>Factura anterior</b><p><?=gd_hc_e($previa['fecha']??'No registrada en historial')?> <?=gd_hc_e($previa['proveedor']??'')?></p><strong><?=gd_hc_mon($previa['costo']??null,4)?></strong></div></div><?php $delta=(isset($previa['costo']) && (float)$previa['costo']>0)?((float)$ultima['costo']/(float)$previa['costo']-1)*100:null;?><p>Variación: <b class="<?=($delta!==null&&$delta>0)?'negative':'positive'?>"><?=$delta===null?'No calculable':number_format($delta,2).'% ' .($delta>=0?'de aumento':'de disminución')?></b></p><p class="help">Se comparan las últimas dos facturas de este código<?php if($f['proveedor']>0):?> y proveedor<?php endif;?>, sin mezclar órdenes emitidas. Fechas de la factura, no de la recepción.</p>
+<?php if($tendencia):$top=max(array_map(static fn($a)=>(float)$a['costo'],$tendencia));?><details><summary>Ver evolución de los últimos <?=count($tendencia)?> costos facturados</summary><p class="help">Cada barra es el costo unitario de una factura; no indica utilidad histórica ni precio de venta de esa fecha.</p><?php foreach($tendencia as $tr):$pct=$top>0?max(1,min(100,100*(float)$tr['costo']/$top)):0;?><div style="display:grid;grid-template-columns:135px 1fr 96px;gap:9px;align-items:center;margin:8px 0"><span class="muted"><?=gd_hc_e($tr['fecha'])?></span><div class="bar"><div style="width:<?=number_format($pct,2,'.','')?>%"></div></div><b style="text-align:right"><?=gd_hc_mon($tr['costo'],4)?></b></div><small class="muted"><?=gd_hc_e($tr['proveedor'])?> · <?=gd_hc_e($tr['folio'])?></small><?php endforeach;?></details><?php endif;?></section><?php endif;?>
+<section class="card"><h2>Historial de documentos · <?=number_format($total)?> partidas</h2><p class="help">Los costos, cantidades y fechas provienen de los documentos originales. El precio de venta mostrado es el registrado actualmente.</p><div class="scroll"><table><thead><tr><th>Tipo</th><th>Fecha</th><th>Factura / OC</th><th>Proveedor</th><th>Código y producto</th><th>Piezas</th><th>Costo pieza</th><th>Último costo actual</th><th>Costo promedio actual</th><th>Precio venta actual</th><th>Utilidad teórica</th><th>Margen teórico</th></tr></thead><tbody>
+<?php foreach($datos as $r):?><tr><td><span class="pill <?=$r['origen']==='OC'?'oc':''?>"><?=$r['origen']==='OC'?'OC':'Factura'?></span></td><td><?=gd_hc_e($r['fecha'])?></td><td><b><?=gd_hc_e($r['referencia'])?></b><div class="muted"><?=gd_hc_e($r['folio'])?> · <?=gd_hc_e($r['estado'])?></div></td><td><?=gd_hc_e($r['proveedor'])?><div class="muted"><?=gd_hc_e($r['destino'])?></div></td><td><b><?=gd_hc_e($r['codigo'])?></b><div class="muted"><?=gd_hc_e($r['descripcion'])?></div><?php if($r['producto_id']):?><a href="<?=gd_hc_e(gd_hc_link($baseQuery,['producto_id'=>$r['producto_id'],'pagina'=>1]))?>">Historial de este código</a><?php endif;?></td><td><?=number_format((int)$r['cantidad'])?></td><td><b><?=gd_hc_mon($r['costo'],4)?></b></td><td><?=gd_hc_mon($r['costo_ultimo_actual'],4)?></td><td><?=gd_hc_mon($r['costo_promedio_actual'],4)?></td><td><?=gd_hc_mon($r['precio_venta_actual'])?></td><td class="<?=($r['utilidad_teorica']??0)<0?'negative':'positive'?>"><?=gd_hc_mon($r['utilidad_teorica'])?></td><td class="<?=($r['margen_teorico']??0)<0?'negative':'positive'?>"><?=$r['margen_teorico']===null?'—':number_format($r['margen_teorico'],2).'%'?></td></tr><?php endforeach;?><?php if(!$datos):?><tr><td colspan="12">No existen documentos con estos filtros.</td></tr><?php endif;?></tbody></table></div><div class="paging">Página <?=$pagina?> de <?=$paginas?> <?php if($pagina>1):?><a href="<?=gd_hc_e(gd_hc_link($baseQuery,['pagina'=>$pagina-1]))?>">← Anterior</a><?php endif;?><?php if($pagina<$paginas):?><a href="<?=gd_hc_e(gd_hc_link($baseQuery,['pagina'=>$pagina+1]))?>">Siguiente →</a><?php endif;?></div></section>
+<?php if($resumenProv):?><section class="card"><h2>Proveedores según facturas filtradas</h2><p class="help">La siguiente tabla excluye las cotizaciones de OC y se ordena por importe documental calculado.</p><div class="scroll"><table><thead><tr><th>Proveedor</th><th>Facturas</th><th>Piezas</th><th>Importe calculado</th><th>Productos distintos</th></tr></thead><tbody><?php foreach($resumenProv as $r):?><tr><td><?=gd_hc_e($r['proveedor'])?></td><td><?=number_format((int)$r['facturas'])?></td><td><?=number_format((int)$r['piezas'])?></td><td><?=gd_hc_mon($r['importe'])?></td><td><?=number_format((int)$r['productos'])?></td></tr><?php endforeach;?></tbody></table></div></section><?php endif;?>
+<?php endif;?></main>
+<script src="assets/js/gyd_excel_reportes.js" defer></script>
+</body></html>

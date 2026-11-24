@@ -1,0 +1,55 @@
+{
+    "created_at": "2026-11-24T15:46:57-06:00",
+    "files": {
+        "pagina": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/public\/erp_movimientos_internos.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/pagina.bak",
+            "original_sha": "35c6f875281d4659da3f7414d689e0f6c2eae874b2b289303906ddd91e524503",
+            "action": "remove"
+        },
+        "helper": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/app\/helpers\/gyd_movimientos_internos.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/helper.bak",
+            "original_sha": "f89cb2c15d35a7596683120e34c57e9a22a50d418766939153e7bde996510ec9",
+            "action": "remove"
+        },
+        "instalador_antiguo": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/tools\/instalar_movimientos_internos.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/instalador_antiguo.bak",
+            "original_sha": "6894049c7aa5ff4234019935d6789d358e5ab161a8d4fd8cf45db153d2ff12bc",
+            "action": "remove"
+        },
+        "fuente_pagina": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/tools\/movimientos_internos_src\/public\/erp_movimientos_internos.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/fuente_pagina.bak",
+            "original_sha": "35c6f875281d4659da3f7414d689e0f6c2eae874b2b289303906ddd91e524503",
+            "action": "remove"
+        },
+        "fuente_helper": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/tools\/movimientos_internos_src\/app\/helpers\/gyd_movimientos_internos.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/fuente_helper.bak",
+            "original_sha": "f89cb2c15d35a7596683120e34c57e9a22a50d418766939153e7bde996510ec9",
+            "action": "remove"
+        },
+        "pruebas_antiguas": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/tools\/movimientos_internos_src\/tests\/test_movimientos_internos.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/pruebas_antiguas.bak",
+            "original_sha": "bac2fc19cc0ef94c3c76d27042a9434947b1b7ef0c1edbc986d2b444ab64bf4b",
+            "action": "remove"
+        },
+        "enlace_kardex": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/public\/erp_kardex_general.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/enlace_kardex.bak",
+            "original_sha": "6715bf5141b55c9226aa1b9e42d14346ddc0cce7bd3b8226506381720896bf8e",
+            "action": "update"
+        },
+        "enlace_conciliacion": {
+            "path": "C:\\xampp\\htdocs\\almacen-farmacia2\/public\/erp_conciliacion_gestion.php",
+            "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools\/respaldos_retirada_movimientos_internos\/enlace_conciliacion.bak",
+            "original_sha": "08cdf43b0f0db8009ada440794acaeffc0ddc4b8b7d6efb20b0b0767f1bb1e32",
+            "action": "update"
+        }
+    },
+    "table_removed_empty": true,
+    "table_had_rows": 0
+}

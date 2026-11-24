@@ -1,0 +1,21 @@
+BASE: productos (ID ÚNICO, nombre, barra, categoría, proveedor, laboratorio, unidad, costo/venta de alta)
+FICHA: erp_producto_ficha (tipos, unidades compra/venta/detallista/auxiliar, relaciones,
+observaciones, impuestos descriptivos, sugerencias de precio, descuentos/flete,
+puntos de frecuencia, opciones y rastreo de lotes).
+CÓDIGOS ALTERNOS: erp_producto_equivalencias (UNIQUE sobre el código equivalente).
+PROVEEDORES: erp_producto_proveedores (proveedores alternativos por artículo).
+HISTORIAL: erp_producto_historial_ficha (creaciones y ediciones realizadas desde ficha).
+
+SOLO LECTURA: pos_existencias_farmacia (general farmacia/POS), producto_existencias (almacén).
+NO SE ESCRIBE en: movimientos, movimiento_detalle, kardex, pos_existencias_farmacia,
+producto_existencias, pos_ventas, pos_venta_detalle ni tablas de precios POS por esta ficha.
+
+SECCIONES INSPIRADAS EN LA CAPTURA WINCAJA:
+Artículo, barras, tipo, subfamilia, categoría, nombre, descripción, proveedor,
+unidad compra/venta/detallista/auxiliar, relaciones, opciones (serie/no inventariable/
+compuesto/lote), precios, observaciones, códigos equivalentes, proveedores,
+estadísticas de ventas, otros impuestos, existencias, descuentos/flete, historial.
+
+Esta es la integración funcional de la ficha y no una réplica de todos los motores
+internos de WinCaja; los controles que requieren lógica de precios, impuestos,
+composición, puntos o cambios de precio NO ejecutan transacciones reales.

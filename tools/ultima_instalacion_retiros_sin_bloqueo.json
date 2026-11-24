@@ -1,0 +1,13 @@
+{
+    "backup": "C:\\xampp\\htdocs\\almacen-farmacia2/backups/retiros_sin_bloqueo_20261114_133335_b9611cbe",
+    "files": {
+        "app/helpers/gyd_retiros_autorizaciones.php": {
+            "before": "82f1be6e7dfc566374c8e99868fc337819b1fa3be8a3299cbff7554e518972c6",
+            "after": "bfb8b4db40c044fcc328588ce51c8758eacff65d39d518f8ac04ceb76964dcb5"
+        },
+        "app/helpers/gyd_retiro_caja_supervision.php": {
+            "before": "98c31ceb9a6aa09332456c1b58187f8c946f85d6950c4f9529dcba71441e616e",
+            "after": "894f12a1f6b398b95bc61e0d6b7e2dc0080e870ffb757fb16639829259d1749e"
+        }
+    }
+}

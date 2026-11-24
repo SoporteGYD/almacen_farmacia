@@ -1,0 +1,40 @@
+/* G&D: asistente de captura de peticiones. Estilos limitados a #ptw_root. */
+#ptw_root{--ptw-blue:#1f5ba0;--ptw-text:#183c62;--ptw-soft:#f2f7fe;--ptw-border:#cfdef2;color:var(--ptw-text);margin-top:16px}
+#ptw_root *{box-sizing:border-box}#ptw_root [hidden]{display:none!important}
+#ptw_root .ptw-hero{padding:20px 24px;background:linear-gradient(105deg,#e9f2ff,#f8fbff);border:1px solid var(--ptw-border);border-radius:14px;margin-bottom:20px}
+#ptw_root .ptw-eyebrow{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--ptw-blue)}
+#ptw_root .ptw-hero h3{font-size:22px;margin:7px 0}#ptw_root .ptw-hero p{font-size:13px;color:#55718e;margin:0}
+#ptw_root .ptw-progress{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-bottom:23px}
+#ptw_root .ptw-progress-step{display:flex;justify-content:center;gap:9px;align-items:center;padding:13px 8px;background:#f4f7fc;color:#49647f;border:1px solid #d6e1ef;border-radius:11px;min-width:0;font-size:13px}
+#ptw_root .ptw-progress-step:not([disabled]){cursor:pointer}#ptw_root .ptw-progress-step:disabled{opacity:.7;cursor:default}
+#ptw_root .ptw-progress-step.is-current{background:#1d5eaa;border-color:#1d5eaa;color:white;box-shadow:0 4px 11px #1b5f9b24}
+#ptw_root .ptw-progress-step.is-done{background:#edf9f2;border-color:#a9dbc0;color:#126240}
+#ptw_root .ptw-progress-number{display:grid;place-items:center;flex:0 0 27px;height:27px;border-radius:50%;background:#fff;color:#275a95;font-weight:800}
+#ptw_root .ptw-progress-step.is-done .ptw-progress-number{color:#096d42}
+#ptw_root .ptw-panel{padding:4px 2px 3px;min-height:280px}
+#ptw_root .ptw-panel-heading{margin-bottom:20px;padding:0 0 13px;border-bottom:1px solid #e0e8f3}
+#ptw_root .ptw-panel-heading h3{font-size:22px;margin:0 0 6px;color:#143d68}
+#ptw_root .ptw-panel-heading p{font-size:13px;color:#617993;margin:0}
+#ptw_root .ptw-tip,#ptw_root .ptw-review-note{background:#fff9e9;border:1px solid #ebd49b;color:#6c5819;border-radius:11px;padding:14px;margin-bottom:18px;font-size:13px}
+#ptw_root .ptw-review-note{background:#f1f7ff;color:#456583;border-color:#cee1f4;margin:15px 0}
+#ptw_root input,#ptw_root select,#ptw_root textarea{background:#f9fbff;border-color:#c6d7eb;min-height:43px}
+#ptw_root label{font-size:13px;margin-bottom:7px}#ptw_root .fields{gap:16px}
+#ptw_root .ptw-route-preview{margin-top:19px;padding:15px 18px;background:#f2f8ff;border:1px dashed #a5c5e8;border-radius:11px;color:#245c92;font-weight:700;font-size:13px}
+#ptw_root .ptw-small{font-size:12px;color:#607891;margin-top:14px}#ptw_root .ptw-count{margin-top:13px;color:#2d658d;font-weight:700;font-size:13px}
+#ptw_root .ptw-actions{display:flex;align-items:center;justify-content:flex-end;gap:11px;margin-top:23px;padding-top:17px;border-top:1px solid #dce6f0}
+#ptw_root .ptw-actions .ptw-next{background:#1265b6;color:#fff;font-weight:800;padding:13px 21px}
+#ptw_root .ptw-actions .ptw-back{background:#e9f0fb;color:#225c99;font-weight:800;padding:13px 18px}
+#ptw_root .ptw-message{border:1px solid #eca9a1;background:#fff0ec;color:#9c382c;padding:13px 15px;border-radius:9px;margin-bottom:15px;font-size:13px;font-weight:650}
+#ptw_root .ptw-sum-route{display:flex;gap:5px;flex-wrap:wrap;justify-content:space-between;padding:14px 17px;background:#f0f6ff;border:1px solid #d1e1f4;border-radius:11px;margin-bottom:15px;font-size:14px}
+#ptw_root .ptw-sum-route span{color:#58718c}
+#ptw_root .ptw-table-wrap{overflow:auto;border:1px solid #d4e1ef;border-radius:11px}
+#ptw_root .ptw-table{min-width:550px;width:100%;border-collapse:collapse}
+#ptw_root .ptw-table th{background:#1b4e84;color:#fff;font-size:12px}
+#ptw_root .ptw-table th,#ptw_root .ptw-table td{padding:12px 14px;text-align:left;border-bottom:1px solid #e4ebf3}
+#ptw_root .ptw-table .ptw-num{text-align:right;font-weight:700}
+#ptw_root .ptw-total-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px;background:#f4f9f6;border:1px solid #cce7d4;border-radius:11px;margin:14px 0 20px;color:#165d37}
+#ptw_root .ptw-total-bar span{font-size:12px}
+#ptw_root .ptw-review-actions{justify-content:flex-start}
+#ptw_root button:focus-visible,#ptw_root select:focus-visible,#ptw_root input:focus-visible{outline:3px solid #a8cdfa;outline-offset:2px}
+@media(max-width:700px){#ptw_root .ptw-hero{padding:15px}#ptw_root .ptw-progress{gap:5px}#ptw_root .ptw-progress-step{font-size:11px;gap:5px;padding:8px 4px}#ptw_root .ptw-progress-number{flex-basis:22px;height:22px}#ptw_root .ptw-actions{justify-content:stretch;flex-wrap:wrap}#ptw_root .ptw-actions button{flex:1}}
+@media print{#ptw_root .ptw-progress,#ptw_root .ptw-actions,#ptw_root .ptw-hero{display:none!important}}

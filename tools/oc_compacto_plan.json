@@ -1,0 +1,20 @@
+{
+  "public/erp_oc_win.php": [
+    {
+      "before": "<main class=\"shell\"><div class=\"page-intro\"><div><span class=\"eyebrow\">Módulo de compras</span><h2>Crea una orden de compra</h2><p>Captura un pedido ya acordado, registra sus artículos y envíalo al gerente de destino.</p></div><div class=\"intro-actions\"><a class=\"btn outline btn-small\" href=\"#historial\">Consultar órdenes recientes ↓</a></div></div>\n<div class=\"steps\" aria-label=\"Etapas de la orden\"><div class=\"step-track\"><span class=\"circle\">1</span><span>Datos generales</span></div><div class=\"step-track\"><span class=\"circle\">2</span><span>Agregar artículos</span></div><div class=\"step-track\"><span class=\"circle\">3</span><span>Revisar importes</span></div><div class=\"step-track\"><span class=\"circle\">4</span><span>Guardar borrador</span></div></div>",
+      "after": "<main class=\"shell\">"
+    },
+    {
+      "before": "<div class=\"help-note\"><span class=\"info-icon\">i</span><span><?php if(gd_oc_requiere_autorizacion()):?>Las órdenes requieren aprobación de Dirección antes de enviarse.<?php else:?>Una orden documenta un pedido ya confirmado con el proveedor; <strong>no requiere aprobación de Dirección</strong>.<?php endif;?> Los pedidos se envían <strong>solo a gerentes registrados</strong>. Registrar una orden <strong>no modifica existencias, lotes, precios ni costos</strong>. Dispones de PDF con y sin costos.</span></div>\n",
+      "after": ""
+    },
+    {
+      "before": " <div class=\"card-head\"><span class=\"index\">1</span><div><h3 id=\"step1-title\">Datos generales</h3><p>Selecciona proveedor, destino y fecha de entrega</p></div><span class=\"head-extra\">* Campos obligatorios</span></div>",
+      "after": " <div class=\"card-head\"><span class=\"index\">1</span><div><h3 id=\"step1-title\">Datos generales</h3><p>Selecciona proveedor, destino y fecha de entrega</p></div><span class=\"head-extra\"><a class=\"btn outline btn-small\" href=\"#historial\">Órdenes recientes ↓</a></span></div>"
+    },
+    {
+      "before": ".shell{max-width:1440px;margin:auto;padding:23px 24px 70px}",
+      "after": ".shell{max-width:1440px;margin:auto;padding:12px 24px 70px}"
+    }
+  ]
+}

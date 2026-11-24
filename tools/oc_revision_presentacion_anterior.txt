@@ -1,0 +1,21 @@
+  function mostrar(resultado) {
+    const {errors, warnings, items} = resultado;
+    panel.hidden = false;
+    panel.dataset.status = errors.length ? 'error' : warnings.length ? 'warning' : 'ok';
+    title.textContent = errors.length
+      ? `${errors.length} error(es) que debes corregir · ${warnings.length} advertencia(s)`
+      : warnings.length ? `${warnings.length} advertencia(s) · puedes continuar` : `${items} artículo(s) · orden lista para registrar`;
+    list.replaceChildren();
+    const problems = [...errors.map(t => '⛔ ' + t), ...warnings.map(t => '⚠ ' + t)];
+    problems.slice(0, 12).forEach(message => {
+      const li = document.createElement('li');
+      li.textContent = message;
+      list.append(li);
+    });
+    if (problems.length > 12) {
+      const li = document.createElement('li');
+      li.textContent = `Y ${problems.length - 12} observaciones más. Revisa los artículos.`;
+      list.append(li);
+    }
+    if (!problems.length) { const li = document.createElement('li'); li.textContent = 'Sin inconsistencias detectadas en la captura.'; list.append(li); }
+  }

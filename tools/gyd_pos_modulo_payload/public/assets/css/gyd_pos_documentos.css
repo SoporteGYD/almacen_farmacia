@@ -1,0 +1,18 @@
+.gd-doc-tools{margin:12px 0;padding:10px 13px;border-radius:11px;background:#f0f6ff;border:1px solid #cfe0fa;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.gd-doc-tools span{color:#536d89;font-size:12px}
+.gd-doc-primary{padding:11px 15px;border:0;border-radius:9px;background:#195bb6;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.gd-doc-primary:disabled{opacity:.6;cursor:not-allowed}
+.gd-doc-backdrop:not([hidden]){position:fixed;inset:0;z-index:999999;background:rgba(10,25,46,.7);display:flex;justify-content:center;align-items:center;padding:20px;box-sizing:border-box}
+.gd-doc-sheet{background:#fff;color:#163153;width:min(770px,100%);max-height:90vh;overflow:auto;box-shadow:0 25px 90px #0003;border-radius:16px;padding:24px;box-sizing:border-box}
+.gd-doc-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.gd-doc-head h2{margin:0 0 10px;font-size:21px}
+.gd-doc-head button{border:0;border-radius:8px;background:#eaf0f7;font-size:26px;padding:0 12px;cursor:pointer;color:#1a416d}
+.gd-doc-fields{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin:16px 0}
+.gd-doc-fields label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600}
+.gd-doc-fields input,.gd-doc-fields select{height:40px;padding:0 10px;border:1px solid #c7d5e5;border-radius:8px;background:#fff;color:#153456;font:inherit}
+.gd-doc-sheet h3{margin:20px 0 8px}.gd-doc-muted{font-size:13px;color:#5b7088;line-height:1.5}
+.gd-doc-row{border-bottom:1px solid #e2e9f2;padding:10px 2px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.gd-doc-row>div{flex:1;min-width:0}.gd-doc-row strong{display:block;font-size:14px;overflow-wrap:anywhere}.gd-doc-row small{display:block;font-size:12px;color:#64748b;margin-top:4px}
+.gd-doc-row button,.gd-repeat{background:#e9f2ff;color:#174b92;border:1px solid #c6dafb;border-radius:7px;padding:7px 10px;cursor:pointer;font-size:12px;font-weight:700;margin:2px}
+.gd-doc-row .gd-doc-del{background:#fff0f0;border-color:#f2cccc;color:#ad3030}
+@media(max-width:550px){.gd-doc-fields{grid-template-columns:1fr}.gd-doc-row{flex-wrap:wrap}}

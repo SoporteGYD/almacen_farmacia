@@ -1,0 +1,80 @@
+{
+  "public/erp_oc_win.php": [
+    {
+      "before": "require_once __DIR__.'/../app/helpers/erp_oc_win.php';",
+      "after": "require_once __DIR__.'/../app/helpers/erp_oc_win.php';\nrequire_once __DIR__.'/../app/helpers/erp_catalogo_iva.php';"
+    },
+    {
+      "before": "SELECT id,codigo,codigo_barras,descripcion,proveedor_id,COALESCE(NULLIF(costo_ultimo,0),NULLIF(costo_promedio,0),precio_compra,0) AS costo, unidad_medida FROM productos WHERE estado=1 AND (codigo LIKE :a OR codigo_barras LIKE :b OR descripcion LIKE :c) ORDER BY CASE WHEN codigo=:e THEN 0 ELSE 1 END,descripcion LIMIT 35",
+      "after": "SELECT p.id,p.codigo,p.codigo_barras,p.descripcion,p.proveedor_id,COALESCE(NULLIF(p.costo_ultimo,0),NULLIF(p.costo_promedio,0),p.precio_compra,0) AS costo, p.unidad_medida, f.iva_compra AS iva_catalogo, f.ieps AS ieps_catalogo FROM productos p LEFT JOIN erp_producto_ficha f ON f.producto_id=p.id WHERE p.estado=1 AND (p.codigo LIKE :a OR p.codigo_barras LIKE :b OR p.descripcion LIKE :c) ORDER BY CASE WHEN p.codigo=:e THEN 0 ELSE 1 END,p.descripcion LIMIT 35"
+    },
+    {
+      "before": "$find=$db->prepare('SELECT id,codigo,descripcion,unidad_medida FROM productos WHERE id=? AND estado=1');",
+      "after": "$find=$db->prepare('SELECT p.id,p.codigo,p.descripcion,p.unidad_medida,f.iva_compra,f.ieps FROM productos p LEFT JOIN erp_producto_ficha f ON f.producto_id=p.id WHERE p.id=? AND p.estado=1');"
+    },
+    {
+      "before": "'iva'=>ocw_pct($ivas[$i]),'ieps'=>ocw_pct($ieps[$i])",
+      "after": "'iva'=>gyd_catalogo_iva_compra($prod['iva_compra'],$prod['codigo']),'ieps'=>gyd_catalogo_ieps_si_existe($prod['ieps']) ?? ocw_pct($ieps[$i])"
+    },
+    {
+      "before": "<th>IVA %</th><th>IEPS %</th>",
+      "after": "<th>IVA compra % (catálogo)</th><th>IEPS %</th>"
+    },
+    {
+      "before": "td().append(prop('iva[]','0','0','100','.01'));td().append(prop('ieps[]','0','0','100','.01'));",
+      "after": "const ivaCatalogo=prop('iva[]',String(p.iva_catalogo),'0','100','.01');ivaCatalogo.readOnly=true;ivaCatalogo.title='Precargado desde Catálogo Maestro; edita la ficha del producto para cambiarlo.';td().append(ivaCatalogo);const iepsCatalogo=prop('ieps[]',p.ieps_catalogo===null||p.ieps_catalogo===undefined?'0':String(p.ieps_catalogo),'0','100','.01');if(p.ieps_catalogo!==null&&p.ieps_catalogo!==undefined){iepsCatalogo.readOnly=true;iepsCatalogo.title='IEPS configurado en Catálogo Maestro';}td().append(iepsCatalogo);"
+    },
+    {
+      "before": "function agregar(p){const id=String(p.id);if(catalog.has(id))return;",
+      "after": "function agregar(p){if(p.iva_catalogo===null||p.iva_catalogo===undefined||p.iva_catalogo===''){alert('Configura el IVA de compra para '+p.codigo+' en Catálogo Maestro antes de agregar el artículo.');return;}const id=String(p.id);if(catalog.has(id))return;"
+    },
+    {
+      "before": "const btn=document.createElement('button');btn.className='btn alt';btn.type='button';btn.textContent='+ Agregar';btn.addEventListener('click',()=>agregar(p));div.append(label,btn);",
+      "after": "const btn=document.createElement('button');btn.className='btn alt';btn.type='button';const sinIVA=p.iva_catalogo===null||p.iva_catalogo===undefined||p.iva_catalogo==='';btn.textContent=sinIVA?'IVA sin configurar':'+ Agregar · IVA '+Number(p.iva_catalogo).toFixed(2)+'%';btn.disabled=sinIVA;btn.addEventListener('click',()=>agregar(p));div.append(label,btn);if(sinIVA){const link=document.createElement('a');link.href='erp_producto_alta.php?id='+encodeURIComponent(String(p.id));link.target='_blank';link.rel='noopener';link.textContent='Configurar IVA en Catálogo';div.append(link);}"
+    },
+    {
+      "before": "set('cantidad',p.quantity);set('costo',p.cost);set('cajas',p.cajas);set('iva',p.iva);set('ieps',p.ieps);",
+      "after": "set('cantidad',p.quantity);set('costo',p.cost);set('cajas',p.cajas);/* El IVA llega de la ficha, nunca del archivo */set('iva',p.product.iva_catalogo);set('ieps',p.ieps);"
+    }
+  ],
+  "app/helpers/erp_oc_importar.php": [
+    {
+      "before": "/** Lectura temporal de archivos de pedido. No escribe en MySQL ni en inventarios. */",
+      "after": "require_once __DIR__.'/erp_catalogo_iva.php';\n/** Lectura temporal de archivos de pedido. No escribe en MySQL ni en inventarios. */"
+    },
+    {
+      "before": "SELECT id,codigo,codigo_barras,descripcion,proveedor_id,COALESCE(NULLIF(costo_ultimo,0),NULLIF(costo_promedio,0),precio_compra,0) AS costo FROM productos WHERE estado=1 AND (codigo=? OR codigo_barras=?) LIMIT 3",
+      "after": "SELECT p.id,p.codigo,p.codigo_barras,p.descripcion,p.proveedor_id,COALESCE(NULLIF(p.costo_ultimo,0),NULLIF(p.costo_promedio,0),p.precio_compra,0) AS costo,f.iva_compra AS iva_catalogo,f.ieps AS ieps_catalogo FROM productos p LEFT JOIN erp_producto_ficha f ON f.producto_id=p.id WHERE p.estado=1 AND (p.codigo=? OR p.codigo_barras=?) LIMIT 3"
+    },
+    {
+      "before": "SELECT id,codigo,codigo_barras,descripcion,proveedor_id,COALESCE(NULLIF(costo_ultimo,0),NULLIF(costo_promedio,0),precio_compra,0) AS costo FROM productos WHERE estado=1 AND descripcion=? LIMIT 3",
+      "after": "SELECT p.id,p.codigo,p.codigo_barras,p.descripcion,p.proveedor_id,COALESCE(NULLIF(p.costo_ultimo,0),NULLIF(p.costo_promedio,0),p.precio_compra,0) AS costo,f.iva_compra AS iva_catalogo,f.ieps AS ieps_catalogo FROM productos p LEFT JOIN erp_producto_ficha f ON f.producto_id=p.id WHERE p.estado=1 AND p.descripcion=? LIMIT 3"
+    },
+    {
+      "before": "$p=$found[0];$id=(int)$p['id'];if(isset($already[$id]))",
+      "after": "$p=$found[0];$id=(int)$p['id'];if($p['iva_catalogo']===null){$out[]=['line'=>$i+1,'code'=>$p['codigo'],'name'=>$p['descripcion'],'status'=>'IVA de compra sin configurar en Catálogo Maestro; actualiza la ficha del producto','ok'=>false];$summary['review']++;continue;}if(isset($already[$id]))"
+    },
+    {
+      "before": "$iva=$pick('iva')===''?0:oci_numeric($pick('iva'),2);$ieps=$pick('ieps')===''?0:oci_numeric($pick('ieps'),2);",
+      "after": "$iva=gyd_catalogo_iva_compra($p['iva_catalogo'],$p['codigo']);$ieps=$p['ieps_catalogo']!==null?gyd_catalogo_ieps_si_existe($p['ieps_catalogo']):($pick('ieps')===''?0:oci_numeric($pick('ieps'),2));"
+    },
+    {
+      "before": "'proveedor_id'=>$p['proveedor_id'],'costo'=>$cost],'status'=>'Coincidencia exacta'",
+      "after": "'proveedor_id'=>$p['proveedor_id'],'costo'=>$cost,'iva_catalogo'=>$iva,'ieps_catalogo'=>$p['ieps_catalogo']],'status'=>'Coincidencia exacta · IVA tomado del catálogo'"
+    }
+  ],
+  "public/erp_producto_alta.php": [
+    {
+      "before": "elseif(count($equivN)>25)$error='Máximo 25 códigos equivalentes.';",
+      "after": "elseif(count($equivN)>25)$error='Máximo 25 códigos equivalentes.';\n   elseif(!$actual && $vals['iva_compra']===null)$error='Indica el IVA de compra en Otros impuestos antes de dar de alta el producto (0% es válido si corresponde).';"
+    },
+    {
+      "before": "Porcentajes informativos para parametrización fiscal posterior. No cambian el cálculo de impuestos de compras, facturación o POS hasta que se integre expresamente.",
+      "after": "IVA compra: fuente oficial para órdenes de compra, incluido su importador TXT/CSV/Excel/PDF. Debe configurarse explícitamente (0% es válido, vacío significa sin configurar). IVA venta y otros impuestos no cambian automáticamente POS ni CFDI."
+    },
+    {
+      "before": "<input name=\"iva_compra\" type=\"number\" min=\"0\" step=\"0.01\" value=\"<?=h(vf('iva_compra'))?>\" placeholder=\"0, 8, 16...\">",
+      "after": "<input name=\"iva_compra\" type=\"number\" min=\"0\" max=\"100\" step=\"0.01\" value=\"<?=h(vf('iva_compra'))?>\" placeholder=\"Configurar 0, 8, 16...\" <?=!$id?'required':''?>>"
+    }
+  ]
+}

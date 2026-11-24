@@ -6,13 +6,15 @@ require_once __DIR__ . '/../models/SesionPersistente.php';
 require_once __DIR__ . '/audit.php';
 
 /*
- * La sesión normal se conserva durante diez años. Además se utiliza una
- * credencial aleatoria guardada en la base de datos para reconstruirla si el
- * servidor elimina su archivo temporal. Solamente "Cerrar sesión" revoca la
- * credencial de este navegador.
+ * Límite máximo deslizante de 30 días para la sesión persistente (antes 10 años).
+ * Esta es una reducción de riesgo, NO sustituye expiración por inactividad,
+ * MFA, control de dispositivos, cierre remoto ni rotación de credenciales.
+ * Las cookies antiguas existentes deben revocarse en el despliegue.
  */
-$tiempoSesion = 60 * 60 * 24 * 365 * 10;
-$nombreCookiePersistente = 'almacen_sesion_persistente';
+$tiempoSesion = 60 * 60 * 24 * 30;
+$nombreCookiePersistente = 'almacen2_pos_sesion_persistente';
+// Separar la sesión de almacen-farmacia2 de la aplicación original.
+if (session_status() === PHP_SESSION_NONE) { session_name('almacen2_pos_sesion'); }
 
 ini_set('session.gc_maxlifetime', (string) $tiempoSesion);
 ini_set('session.cookie_lifetime', (string) $tiempoSesion);
@@ -40,7 +42,7 @@ function opcionesCookieSesion(int $expira): array
 {
     return [
         'expires' => $expira,
-        'path' => '/',
+        'path' => '/almacen-farmacia2/public/',
         'domain' => '',
         'secure' => solicitudEsHttps(),
         'httponly' => true,
@@ -51,7 +53,7 @@ function opcionesCookieSesion(int $expira): array
 if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
         'lifetime' => $tiempoSesion,
-        'path' => '/',
+        'path' => '/almacen-farmacia2/public/',
         'domain' => '',
         'secure' => solicitudEsHttps(),
         'httponly' => true,
@@ -280,7 +282,17 @@ function restaurarSesionPersistente(): bool
             'almacen_codigo' =>
                 $registro['almacen_codigo'] ?? null,
         ];
-        $_SESSION['ultimo_acceso'] = time();
+        // Aplicar equivalencia ANTES de las validaciones de rutas/módulos.
+    aplicarPermisosDireccion();
+
+    // CONTABILIDAD solo consulta y realiza cortes con autorización personal.
+    if (strtoupper(trim((string)(currentUser()['rol_original'] ?? currentUser()['rol'] ?? ''))) === 'CONTABILIDAD') {
+        $archivoContable=basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+        if (!in_array($archivoContable,['gyd_cortes_caja.php','pos_corte_retiros.php','erp_cortes_boveda.php','logout.php','session_keepalive.php'],true)) {
+            http_response_code(403);exit('La cuenta de Contabilidad solo puede acceder a los cortes de caja autorizados.');
+        }
+    }
+    $_SESSION['ultimo_acceso'] = time();
         $_SESSION['sesion_persistente_selector'] =
             $cookie['selector'];
 
@@ -443,6 +455,10 @@ function verificarAccesoJefeAlmacen(): void
         'api_notificaciones_pendientes.php',
         'session_keepalive.php',
         'logout.php',
+        'peticiones_traspasos.php',
+        'peticiones_traspasos_api.php',
+        'peticiones_traspasos_imprimir.php',
+        'traspasos.php',
     ];
 
     if (in_array($archivo, $archivosPermitidos, true)) {
@@ -467,9 +483,50 @@ function verificarAccesoJefeAlmacen(): void
 
 function paginaInicialUsuario(?array $usuario = null): string
 {
+    $usuario = $usuario ?? currentUser();
+    if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'CAJERO') { return 'pos.php'; }
+    if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'COMPRAS') {return 'erp_compras_inicio.php';}
+    if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'CONTABILIDAD') {return 'gyd_cortes_caja.php';}
     return esJefeAlmacenLimitado($usuario)
         ? 'resurtidos.php'
         : 'dashboard.php';
+}
+
+function restringirCajeroAlPos(): void
+{
+    if (strtoupper((string)(currentUser()['rol'] ?? '')) !== 'CAJERO') { return; }
+    $archivo = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    /* GYD_PERFIL_CAJERO_RUTAS: exclusivamente operación POS y alta/búsqueda de clientes. */
+    $permitidos = [
+        'pos.php','pos_api.php','pos_ticket.php','pos_historial.php',
+        'pos_retiros.php','pos_retiro_ticket.php','pos_retiros_estado.php',
+        'pos_corte_retiros.php','pos_eficiencia_api.php',
+        'gyd_clientes.php','gyd_clientes_api.php',
+        'logout.php','session_keepalive.php'
+    ];
+    if (!in_array($archivo, $permitidos, true)) {
+        http_response_code(403); exit('Acceso denegado: este usuario solo puede utilizar Punto de Venta.');
+    }
+}
+
+/**
+ * DIRECCION disfruta de los mismos permisos operativos que ADMINISTRADOR.
+ * La identidad y el rol real se conservan para la autorización de compras,
+ * en la que solamente otro usuario de DIRECCION puede aprobar.
+ * No modifica la base de datos ni el rol guardado en la tabla usuarios.
+ */
+function aplicarPermisosDireccion(): void
+{
+    if (!isset($_SESSION['user']) || !is_array($_SESSION['user'])) {
+        return;
+    }
+    $original = strtoupper(trim((string)(
+        $_SESSION['user']['rol_original'] ?? $_SESSION['user']['rol'] ?? ''
+    )));
+    if ($original === 'DIRECCION') {
+        $_SESSION['user']['rol_original'] = 'DIRECCION';
+        $_SESSION['user']['rol'] = 'ADMINISTRADOR';
+    }
 }
 
 function requireLogin(): void
@@ -479,11 +536,53 @@ function requireLogin(): void
         exit;
     }
 
+    // DIRECCION mantiene su rol original visible y recibe permisos de ADMINISTRADOR
+    // también después de un inicio de sesión normal (no solo al restaurar cookies).
+    aplicarPermisosDireccion();
+
+    // CONTABILIDAD solo consulta y realiza cortes con autorización personal.
+    if (strtoupper(trim((string)(currentUser()['rol_original'] ?? currentUser()['rol'] ?? ''))) === 'CONTABILIDAD') {
+        $archivoContable=basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+        if (!in_array($archivoContable,['gyd_cortes_caja.php','pos_corte_retiros.php','erp_cortes_boveda.php','logout.php','session_keepalive.php'],true)) {
+            http_response_code(403);exit('La cuenta de Contabilidad solo puede acceder a los cortes de caja autorizados.');
+        }
+    }
     $_SESSION['ultimo_acceso'] = time();
     renovarCookieSesion();
 
     verificarAccesoJefeAlmacen();
+    restringirCajeroAlPos();
 
+    // ENCARGADO pertenece exclusivamente a la operación de Almacén.
+    // Ocultar enlaces no basta: impedir también el acceso directo a ERP/POS.
+    // No afecta a Tickets, Resurtidos, Entradas, Salidas ni Existencias.
+    $rolRealActual = strtoupper(trim((string)(
+        currentUser()['rol_original'] ?? currentUser()['rol'] ?? ''
+    )));
+    if ($rolRealActual === 'ENCARGADO' && !in_array(
+    basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')),
+    ['erp_notificaciones.php', 'erp_notificaciones_api.php'],
+    true
+)) { /* G&D CENTRO AVISOS ENCARGADO V2 */
+        $paginaActual = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+        if ((str_starts_with($paginaActual, 'erp_') && !in_array($paginaActual,['erp_recepciones_pendientes.php','erp_recepciones_historial.php','erp_recepcion_registrar.php','erp_oc_avisos_api.php','erp_oc_inventarios.php'],true))
+            || $paginaActual === 'pos.php' // OCAV_ENCARGADO_RECEPCIONES_V1
+            || str_starts_with($paginaActual, 'pos_')) {
+            http_response_code(403);
+            exit('Acceso denegado: el perfil ENCARGADO solo tiene acceso a las funciones autorizadas de Almacén.');
+        }
+    }
+
+    $rolErp=strtoupper(trim((string)(currentUser()['rol']??'')));
+    if($rolErp==='COMPRAS' && !in_array(basename((string)($_SERVER['SCRIPT_NAME']??'')),['erp_compras_avisos.php','erp_oc_avisos_api.php','erp_oc_inventarios.php','peticiones_traspasos.php','peticiones_traspasos_api.php','peticiones_traspasos_imprimir.php','traspasos.php'],true)) { // OCAV_COMPRAS_ACCESOS_V1
+        $rutaActual=basename((string)($_SERVER['SCRIPT_NAME']??''));
+        require_once __DIR__ . '/erp_compras_modulos.php';
+        if(!gyd_compras_ruta_permitida($rutaActual)){http_response_code(403);exit('Acceso limitado al Área de Compras.');}
+    }
+
+    // GYD_ACL_CONTROL_CENTRAL_RUTAS
+    require_once __DIR__.'/gyd_acl.php';
+    gyd_acl_exigir_ruta(currentUser() ?? [], basename((string)($_SERVER['SCRIPT_NAME'] ?? '')));
     auditTrackCurrentRequest();
 }
 

@@ -1,0 +1,45 @@
+{
+  "purpose": "G&D - retiros autorizados por cuatro roles",
+  "files": {
+    "app/helpers/gyd_retiros_autorizaciones.php": {
+      "before": {},
+      "after": "c1dd5cdaab330b9b5c522539c63c5226c3691ed4140785e655c297a689c0e630"
+    },
+    "app/helpers/gyd_retiros_directos.php": {
+      "before": {
+        "default": "5935f8f7deb336872535217e58a31c948456590657769a2a5afd55eb439f0cc8"
+      },
+      "after": "6f9a5364495263de9c1852db13815e016ce5088e1fd75d548c9f86f0f4592517"
+    },
+    "public/pos_api.php": {
+      "before": {
+        "default": "92f1d139f949d4383480ed39a3578772d466229e35abebe92cb7bdadf527367b"
+      },
+      "after": "83c8addc0dab7054c2ce26ca7724bae113fcf55c1f1df0d45ab35fe17222d128"
+    },
+    "public/assets/js/gyd_acceso_previo.js": {
+      "before": {
+        "default": "9a6bf0eeff0c72911b7a5b4ccc847677c5cb01b074d20d782770afda241b214d"
+      },
+      "after": "809b2dfda1c8345b651475e4072c59fe288005caeb83ed0468b4b21a2323de91"
+    },
+    "public/pos_retiros.php": {
+      "before": {
+        "default": "13c4c9f94b40a36b3104db8fbf488ec51db9a26b654f572a335b1db54c44c4b3"
+      },
+      "after": "7708c63b50e87aea50484f51de945d1741e6e3930ab380a736e072a9bf66a24f"
+    },
+    "public/pos_retiro_ticket.php": {
+      "before": {
+        "default": "e289e35458455c67aa04d1597285fedd02d297bcbc6bdd96afa3a91fb4db0f80"
+      },
+      "after": "2bcdb770748510211785c00fdfd0dc8de3a9f1f6c1c98f88fe5659ccb2c8c172"
+    },
+    "public/pos_corte_retiros.php": {
+      "before": {
+        "default": "b9cd678958be064ac5d4175773b9fd9fee52dd9e0668c25ba54c8d0946b1def3"
+      },
+      "after": "cba38928bbeb4068d8ce9a8e4c73cd94c05a7811eac2c212136ef4102fc43d3b"
+    }
+  }
+}

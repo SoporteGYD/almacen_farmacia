@@ -1,0 +1,43 @@
+{
+  "version": "V41",
+  "base": "V40",
+  "database": "prueba",
+  "port": 3307,
+  "canje_fisico_habilitado": false,
+  "canje_virtual_habilitado": true,
+  "inventario_real_modificado": false,
+  "files": {
+    "app/helpers/gyd_rewards_lab_v41.php": {
+      "allowed": [],
+      "new": "2aef5872e6b6968b78891033d78577697d00617196a8dc553de33160e24d117f",
+      "payload": "app/helpers/gyd_rewards_lab_v41.php"
+    },
+    "public/assets/css/gyd_lab_v41.css": {
+      "allowed": [],
+      "new": "823455338aa6057fb8b6c449378b108849d8d182993fe43ee34f2ed56de2fc52",
+      "payload": "public/assets/css/gyd_lab_v41.css"
+    },
+    "public/assets/js/gyd_lab_v41.js": {
+      "allowed": [],
+      "new": "eb1b817cc9a2badcf3f1d3d4cab256314db5daf19a6f1bb74f92557cd96fea53",
+      "payload": "public/assets/js/gyd_lab_v41.js"
+    },
+    "public/gyd_lab_v40.php": {
+      "allowed": [
+        "0d653cd3a806d3731df4e480c1314c4638df1e7c5d49c87b01720c5202544874"
+      ],
+      "new": "d34b8b5999b7e89983bb5b24013adb2d106a6af8d2136a652661fc24fa2daf4f",
+      "payload": "public/gyd_lab_v40.php"
+    },
+    "public/gyd_lab_v41.php": {
+      "allowed": [],
+      "new": "a1229aceee78a5ec9eee48562a9c33f606473246a4af65e5499e257a8b55a276",
+      "payload": "public/gyd_lab_v41.php"
+    },
+    "public/gyd_lab_v41_api.php": {
+      "allowed": [],
+      "new": "9c72525a047ba4ce59c2f83234e130e4549e2f35528edcebda69ddcb8344ca82",
+      "payload": "public/gyd_lab_v41_api.php"
+    }
+  }
+}

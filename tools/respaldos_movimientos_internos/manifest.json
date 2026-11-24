@@ -1,0 +1,25 @@
+{
+    "created_at": "2026-11-24T13:06:30-06:00",
+    "changes": {
+        "helper": {
+            "dest": "C:\\xampp\\htdocs\\almacen-farmacia2\/app\/helpers\/gyd_movimientos_internos.php",
+            "old": "",
+            "sha_new": "f89cb2c15d35a7596683120e34c57e9a22a50d418766939153e7bde996510ec9"
+        },
+        "page": {
+            "dest": "C:\\xampp\\htdocs\\almacen-farmacia2\/public\/erp_movimientos_internos.php",
+            "old": "",
+            "sha_new": "35c6f875281d4659da3f7414d689e0f6c2eae874b2b289303906ddd91e524503"
+        },
+        "kardex": {
+            "dest": "C:\\xampp\\htdocs\\almacen-farmacia2\/public\/erp_kardex_general.php",
+            "old": "bf1ce675fb422b5820173b08f19deea8c9bd515545a5fef9e28ba743085e3772",
+            "sha_new": "6715bf5141b55c9226aa1b9e42d14346ddc0cce7bd3b8226506381720896bf8e"
+        },
+        "gestion": {
+            "dest": "C:\\xampp\\htdocs\\almacen-farmacia2\/public\/erp_conciliacion_gestion.php",
+            "old": "6e0d219848bc86f2daff52eb0824f829c143c71f92ae028bbbc8cf75847560b9",
+            "sha_new": "08cdf43b0f0db8009ada440794acaeffc0ddc4b8b7d6efb20b0b0767f1bb1e32"
+        }
+    }
+}

@@ -1,0 +1,26 @@
+-- Registrar en la misma transacción que pos_movimientos_caja. Nunca genera ventas ni inventario.
+CREATE TABLE IF NOT EXISTS gyd_retiros_boveda (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ retiro_legacy_id BIGINT UNSIGNED NOT NULL,
+ turno_id BIGINT UNSIGNED NOT NULL,
+ caja_id BIGINT UNSIGNED NOT NULL,
+ cajero_id INT NOT NULL,
+ movimiento_id BIGINT UNSIGNED NOT NULL,
+ operacion_clave CHAR(32) NOT NULL,
+ importe DECIMAL(14,2) NOT NULL,
+ esperado_antes DECIMAL(14,2) NOT NULL,
+ efectivo_despues DECIMAL(14,2) NOT NULL,
+ desglose_json LONGTEXT NOT NULL,
+ creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ boveda_estado ENUM('SIN_VERIFICAR','VERIFICADO','DIFERENCIA') NOT NULL DEFAULT 'SIN_VERIFICAR',
+ verificado_por INT DEFAULT NULL,
+ importe_boveda DECIMAL(14,2) DEFAULT NULL,
+ verificado_en DATETIME DEFAULT NULL,
+ nota_boveda VARCHAR(255) DEFAULT NULL,
+ UNIQUE KEY uq_gyd_boveda_retiro(retiro_legacy_id),
+ UNIQUE KEY uq_gyd_boveda_movimiento(movimiento_id),
+ UNIQUE KEY uq_gyd_boveda_operacion(operacion_clave),
+ KEY idx_gyd_boveda_turno(turno_id,creado_en),
+ KEY idx_gyd_boveda_fecha(creado_en),
+ KEY idx_gyd_boveda_estado(boveda_estado)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

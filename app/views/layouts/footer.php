@@ -28,5 +28,9 @@
         );
     }());
     </script>
+<script defer src="assets/js/erp_notificaciones.js?v=1"></script>
+<script src="assets/js/gyd_feedback_modal.js?v=5" defer></script>
+
+<script src="assets/js/gyd_excel_reportes.js" defer></script>
 </body>
 </html>

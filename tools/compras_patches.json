@@ -1,0 +1,122 @@
+[
+  {
+    "file": "app/helpers/auth.php",
+    "find": "if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'COMPRAS') {return 'erp_ordenes_compra.php';}",
+    "replace": "if (strtoupper(trim((string)($usuario['rol'] ?? ''))) === 'COMPRAS') {return 'erp_compras_inicio.php';}",
+    "description": "Inicio propio para Compras"
+  },
+  {
+    "file": "app/helpers/auth.php",
+    "find": "        $rutasPermitidas=['erp_ordenes_compra.php','erp_oc_autorizaciones.php','erp_oc_enviar.php','erp_mi_correo.php','erp_orden_compra_pdf.php','erp_recepciones_pendientes.php','erp_recepciones_historial.php','erp_recepcion_registrar.php','logout.php','session_keepalive.php'];\n        if(!in_array($rutaActual,$rutasPermitidas,true)){http_response_code(403);exit('Acceso limitado a los módulos ERP de Compras.');}",
+    "replace": "        require_once __DIR__ . '/erp_compras_modulos.php';\n        if(!gyd_compras_ruta_permitida($rutaActual)){http_response_code(403);exit('Acceso limitado al Área de Compras.');}",
+    "description": "Lista cerrada de rutas Compras"
+  },
+  {
+    "file": "app/controllers/UsuarioController.php",
+    "find": "    $rolesPermitidos = [\n        'ADMINISTRADOR',\n        'ENCARGADO',\n        'CONSULTA',\n        'GERENTE',\n        'JEFE_ALMACEN',\n        'CAJERO',\n    ];",
+    "replace": "    $rolesPermitidos = [\n        'ADMINISTRADOR',\n        'ENCARGADO',\n        'CONSULTA',\n        'GERENTE',\n        'JEFE_ALMACEN',\n        'CAJERO',\n        'COMPRAS',\n        'DIRECCION',\n    ];",
+    "description": "Edición del perfil Compras sin cambiar almacenes"
+  },
+  {
+    "file": "app/controllers/UsuarioController.php",
+    "find": "        if($rol==='CAJERO' && !(new AsignacionPos())->validar((int)($data['pos_sucursal_id']??0),(int)($data['pos_caja_id']??0)))\n        return ['success'=>false,'message'=>'Selecciona sucursal y caja POS válidas.'];\n    $usuarioAnterior = $this->usuarioModel->findById($id);",
+    "replace": "        $usuarioAnterior = $this->usuarioModel->findById($id);",
+    "description": "Corrige excepción accidental al activar o desactivar usuarios"
+  },
+  {
+    "file": "public/erp_proveedores.php",
+    "find": "['ADMINISTRADOR','ADMIN','GERENTE','CONSULTA']",
+    "replace": "['ADMINISTRADOR','ADMIN','GERENTE','CONSULTA','COMPRAS']",
+    "description": "Compras puede consultar proveedores"
+  },
+  {
+    "file": "public/erp_proveedores.php",
+    "find": "$editar = in_array($rol, ['ADMINISTRADOR','ADMIN'], true);",
+    "replace": "$editar = in_array($rol, ['ADMINISTRADOR','ADMIN','COMPRAS'], true);",
+    "description": "Compras puede gestionar proveedores"
+  },
+  {
+    "file": "public/erp_proveedores.php",
+    "find": "<a href=\"dashboard.php\">← Volver al sistema</a>",
+    "replace": "<a href=\"<?= $rol==='COMPRAS' ? 'erp_compras_inicio.php' : 'dashboard.php' ?>\">← Volver al sistema</a>",
+    "description": "Navegación retorno a Compras"
+  },
+  {
+    "file": "app/views/layouts/erp_barra_sesion.php",
+    "find": "<a href=\"dashboard.php\">Inicio</a>",
+    "replace": "<a href=\"<?= strtoupper((string)($erpUsrBar['rol_original']??$erpUsrBar['rol']??''))==='COMPRAS' ? 'erp_compras_inicio.php' : 'dashboard.php' ?>\">Inicio</a>",
+    "description": "Barra ERP vuelve a inicio de Compras"
+  },
+  {
+    "file": "public/erp_oc_win.php",
+    "find": "<a class=\"nav-action\" href=\"dashboard.php\">← Volver al ERP</a>",
+    "replace": "<a class=\"nav-action\" href=\"<?= ocw_role($user)==='COMPRAS'?'erp_compras_inicio.php':'dashboard.php' ?>\">← Volver al ERP</a>",
+    "description": "Órdenes regresa al panel correcto"
+  },
+  {
+    "file": "public/erp_catalogo_maestro.php",
+    "find": "<a href=\"productos.php\">← Volver a Productos</a>",
+    "replace": "<a href=\"<?= $rol==='COMPRAS'?'erp_compras_inicio.php':'productos.php' ?>\">← Volver</a>",
+    "description": "Catálogo vuelve al panel Compras"
+  },
+  {
+    "file": "app/views/layouts/header.php",
+    "find": "$menuAgregar('🧾 Compras y proveedores', 'Catálogo Maestro de Productos', 'erp_catalogo_maestro.php', $erpEstaHabilitado && !$menuEsCompras);",
+    "replace": "$menuAgregar('🧾 Compras y proveedores', 'Catálogo Maestro de Productos', 'erp_catalogo_maestro.php', $erpEstaHabilitado);",
+    "description": "Muestra catálogo a Compras"
+  },
+  {
+    "file": "app/views/layouts/header.php",
+    "find": "$menuAgregar('🧾 Compras y proveedores', 'Proveedores', 'erp_proveedores.php', $erpEstaHabilitado && !$menuEsCompras);",
+    "replace": "$menuAgregar('🧾 Compras y proveedores', 'Proveedores', 'erp_proveedores.php', $erpEstaHabilitado);",
+    "description": "Muestra proveedores a Compras"
+  },
+  {
+    "file": "app/views/layouts/header.php",
+    "find": "$menuAgregar('🧾 Compras y proveedores', 'Órdenes de Compra', 'erp_ordenes_compra.php', $erpEstaHabilitado);",
+    "replace": "$menuAgregar('🧾 Compras y proveedores', 'Inicio de Compras', 'erp_compras_inicio.php', $menuEsCompras || $menuEsAdmin);\n$menuAgregar('🧾 Compras y proveedores', 'Análisis de compras', 'erp_analisis_compras.php', $menuEsCompras || $menuEsAdmin);\n$menuAgregar('🧾 Compras y proveedores', 'Órdenes de Compra', 'erp_ordenes_compra.php', $erpEstaHabilitado);",
+    "description": "Enlaces a panel y análisis Compras"
+  },
+  {
+    "file": "public/usuario.php",
+    "find": "$mensaje = '';\n$error = '';",
+    "replace": "$mensaje = '';\n$error = '';\nif (empty($_SESSION['gyd_usuarios_csrf'])) { $_SESSION['gyd_usuarios_csrf'] = bin2hex(random_bytes(32)); }\n$csrfUsuarios = (string) $_SESSION['gyd_usuarios_csrf'];",
+    "description": "Token CSRF para alta y edición de usuarios"
+  },
+  {
+    "file": "public/usuario.php",
+    "find": "if ($_SERVER['REQUEST_METHOD'] === 'POST') {\n    $accion =",
+    "replace": "if ($_SERVER['REQUEST_METHOD'] === 'POST') {\n    if (!hash_equals($csrfUsuarios, (string)($_POST['csrf'] ?? ''))) { http_response_code(419); exit('Formulario de usuarios caducado. Actualiza la página y vuelve a intentar.'); }\n    $accion =",
+    "description": "Validación del token CSRF"
+  },
+  {
+    "file": "public/usuario.php",
+    "find": "<input type=\"hidden\" name=\"accion\" value=\"crear\">",
+    "replace": "<input type=\"hidden\" name=\"accion\" value=\"crear\">\n            <input type=\"hidden\" name=\"csrf\" value=\"<?= e($csrfUsuarios) ?>\">",
+    "description": "Protección del formulario crear"
+  },
+  {
+    "file": "public/usuario.php",
+    "find": "<input type=\"hidden\" name=\"accion\" value=\"editar\">",
+    "replace": "<input type=\"hidden\" name=\"accion\" value=\"editar\">\n            <input type=\"hidden\" name=\"csrf\" value=\"<?= e($csrfUsuarios) ?>\">",
+    "description": "Protección del formulario editar"
+  },
+  {
+    "file": "public/usuario.php",
+    "find": "<input type=\"hidden\" name=\"accion\" value=\"password\">",
+    "replace": "<input type=\"hidden\" name=\"accion\" value=\"password\">\n            <input type=\"hidden\" name=\"csrf\" value=\"<?= e($csrfUsuarios) ?>\">",
+    "description": "Protección del formulario password"
+  },
+  {
+    "file": "public/usuario.php",
+    "find": "<input type=\"hidden\" name=\"accion\" value=\"estado\">",
+    "replace": "<input type=\"hidden\" name=\"accion\" value=\"estado\">\n            <input type=\"hidden\" name=\"csrf\" value=\"<?= e($csrfUsuarios) ?>\">",
+    "description": "Protección del formulario estado"
+  },
+  {
+    "file": "public/usuario.php",
+    "find": "<h3 style=\"margin-bottom:18px;\">Crear Usuario</h3>",
+    "replace": "<h3 style=\"margin-bottom:18px;\">Crear Usuario</h3>\n    <p style=\"font-size:13px;color:#456480;margin-top:-7px\">Para personal de Compras, selecciona <strong>COMPRAS (ERP)</strong>. Cada empleado debe tener usuario, correo y contraseña propios. Podrá entrar a su panel de compras sin acceso al POS ni a la aplicación de inventario.</p>",
+    "description": "Instrucción para configurar cuentas Compras"
+  }
+]

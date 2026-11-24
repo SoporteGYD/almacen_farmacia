@@ -147,5 +147,7 @@ if (!$conteo) {
     </tbody>
 </table>
 
+<!-- GYD_UNA_PESTANA_INTERNA -->
+<script src="assets/js/gyd_una_pestana.js?v=1"></script>
 </body>
 </html>

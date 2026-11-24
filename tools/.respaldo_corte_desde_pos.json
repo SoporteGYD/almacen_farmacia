@@ -1,0 +1,29 @@
+{
+    "folder": "C:\\xampp\\htdocs\\almacen-farmacia2/backups/corte_pos_autorizado_20261113_140955_d326b1",
+    "files": {
+        "public/pos.php": {
+            "before": "e7241f1b7d9bc27159f4c45a80784a7c252087389345a8b57a10fecbbf68d641",
+            "after": "ddbfd3c5300e28e5b0822a6f733b05013f7df4112efb7fd6ed259b4443efd979"
+        },
+        "public/pos_api.php": {
+            "before": "54432cce4208c4b8eece0f27032868da0d7a071e08fd050a8efee2450a65fec0",
+            "after": "65395b9b4b420715f3d1ce7fe0c5c4f829efe68d52c067d96e9c7c2833c78439"
+        },
+        "app/models/PuntoVenta.php": {
+            "before": "5a06bfc1d4a93839262b63c92003850524b29a39951d757f18f6bb7238d7a17c",
+            "after": "8f0b54698c0d059b6a9aa8c619293db9536d16a89246250a1f54b1100aa25157"
+        },
+        "public/pos_corte_retiros.php": {
+            "before": "46f596dad66a04fe81f9918e670a6bcc1663201b69a3f15843427782b9804cf2",
+            "after": "d9bb94bf8970973a708a322bd6899457a6a4aafaeb061039c173e2356176711f"
+        },
+        "public/assets/js/gyd_acceso_previo.js": {
+            "before": "809b2dfda1c8345b651475e4072c59fe288005caeb83ed0468b4b21a2323de91",
+            "after": "0fefd1524d0eee728f1d6a1ebd1ad9cc0f79ed5c6f1b7463eaa8888e57206989"
+        },
+        "app/helpers/gyd_cortes_autorizados.php": {
+            "before": "d60479d1f4c12a5a6674c12980f75e2646e97d0c5268e9ad02c298de8f6db12d",
+            "after": "21f93220eecd999945032484cf281354198663c0ccf68821573f346d24a5779e"
+        }
+    }
+}

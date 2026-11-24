@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/Proveedor.php';
+require_once __DIR__ . '/../helpers/erp_productos_unicos.php';
 
 class Producto
 {
@@ -571,6 +572,12 @@ class Producto
 
     public function create(array $data): bool
     {
+        $gyd_lock = (int)$this->conn->query("SELECT GET_LOCK('gyd_catalogo_producto_write',10)")->fetchColumn() === 1;
+        if (!$gyd_lock) return false;
+        try {
+            $hit = gyd_producto_duplicado($this->conn, (string)($data['codigo'] ?? ''), (string)(($data['codigo_barras'] ?? '') ?: ($data['codigo'] ?? '')), (string)($data['descripcion'] ?? ''), null);
+            if ($hit) return false;
+
         $proveedorId = $this->obtenerOCrearProveedor($data['proveedor_nombre'] ?? '');
         $ubicacion = $this->limpiarUbicacion($data['ubicacion'] ?? '');
 
@@ -632,10 +639,20 @@ class Producto
             ':precio_venta' => $data['precio_venta'] ?? 0,
             ':ubicacion' => $ubicacion
         ]);
-    }
+    
+        } finally {
+            $this->conn->query("SELECT RELEASE_LOCK('gyd_catalogo_producto_write')");
+        }
+}
 
     public function update(int $id, array $data): bool
     {
+        $gyd_lock = (int)$this->conn->query("SELECT GET_LOCK('gyd_catalogo_producto_write',10)")->fetchColumn() === 1;
+        if (!$gyd_lock) return false;
+        try {
+            $hit = gyd_producto_duplicado($this->conn, (string)($data['codigo'] ?? ''), (string)(($data['codigo_barras'] ?? '') ?: ($data['codigo'] ?? '')), (string)($data['descripcion'] ?? ''), (int)$id);
+            if ($hit) return false;
+
         $proveedorId = $this->obtenerOCrearProveedor($data['proveedor_nombre'] ?? '');
         $ubicacion = $this->limpiarUbicacion($data['ubicacion'] ?? '');
 
@@ -686,7 +703,11 @@ class Producto
             ':ubicacion' => $ubicacion,
             ':id' => $id
         ]);
-    }
+    
+        } finally {
+            $this->conn->query("SELECT RELEASE_LOCK('gyd_catalogo_producto_write')");
+        }
+}
 
     /**
      * Reactivar un producto dado de baja y actualizar sus datos de catálogo.
@@ -696,6 +717,12 @@ class Producto
      */
     public function reactivate(int $id, array $data): bool
     {
+        $gyd_lock = (int)$this->conn->query("SELECT GET_LOCK('gyd_catalogo_producto_write',10)")->fetchColumn() === 1;
+        if (!$gyd_lock) return false;
+        try {
+            $hit = gyd_producto_duplicado($this->conn, (string)($data['codigo'] ?? ''), (string)(($data['codigo_barras'] ?? '') ?: ($data['codigo'] ?? '')), (string)($data['descripcion'] ?? ''), (int)$id);
+            if ($hit) return false;
+
         $proveedorId = $this->obtenerOCrearProveedor(
             $data['proveedor_nombre'] ?? ''
         );
@@ -759,7 +786,11 @@ class Producto
         ]);
 
         return $ok && $stmt->rowCount() > 0;
-    }
+    
+        } finally {
+            $this->conn->query("SELECT RELEASE_LOCK('gyd_catalogo_producto_write')");
+        }
+}
 
     public function crearOActualizarCatalogo(array $data): bool
     {

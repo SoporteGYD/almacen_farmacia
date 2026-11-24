@@ -1,0 +1,435 @@
+{
+    "backup": "C:\\xampp\\htdocs\\almacen-farmacia2\\tools/respaldos_nav_roles/20261114_214113_a87e51",
+    "files": [
+        {
+            "path": "public/assets/js/gyd_nav_global.js",
+            "before_exists": true,
+            "after_sha": "ae89c9dee319be865acea8dfed08d153c5309227bd9450a312f4603e0b9eafc4"
+        },
+        {
+            "path": "public/carta_porte_demo.php",
+            "before_exists": true,
+            "after_sha": "cbdcb9f23e2f59d1c18d7b979a278f3448e3804c7b41be660c461a6185f367ea"
+        },
+        {
+            "path": "public/erp_alertas_compras.php",
+            "before_exists": true,
+            "after_sha": "ef01cf1c054f494c3cf92f0254baed657ef1dca8acf82cf54950c6ba5a12c5f8"
+        },
+        {
+            "path": "public/erp_alertas_gerenciales.php",
+            "before_exists": true,
+            "after_sha": "b39ff999c51abd13fd2417ac73952da56c43825443b3197ee9a64c32acac6cb6"
+        },
+        {
+            "path": "public/erp_analisis_compras.php",
+            "before_exists": true,
+            "after_sha": "13d110eb4524fcf5fc257ec245fb113204c6017fc7f5471380a01a21c098ff62"
+        },
+        {
+            "path": "public/erp_auditoria_cajas_v12.php",
+            "before_exists": true,
+            "after_sha": "7bd5d332265d2812dfbb9b37ef55e647b5373d2de3cda564163b33c707addd04"
+        },
+        {
+            "path": "public/erp_cambio_precios.php",
+            "before_exists": true,
+            "after_sha": "b5ae5ecc6ec8a91f49dbb985175648aa82406a49512ee8342bfbc737e53cb5f5"
+        },
+        {
+            "path": "public/erp_catalogo_auditoria.php",
+            "before_exists": true,
+            "after_sha": "b5d8aacbf335648f1916afa28f2d13b7e601099584e1ed5b64e8a1d06ce29539"
+        },
+        {
+            "path": "public/erp_catalogo_comparar_proveedores.php",
+            "before_exists": true,
+            "after_sha": "0d20bc1698ceffe541bd919ac24323735b89c8b409ed37db681607bb4498de9d"
+        },
+        {
+            "path": "public/erp_catalogo_finanzas.php",
+            "before_exists": true,
+            "after_sha": "1e2c0585db7b1fd74c63af3d38bcf21a5d837fa5f7d9ff5a32b30e5df2d801e0"
+        },
+        {
+            "path": "public/erp_catalogo_historial_costos.php",
+            "before_exists": true,
+            "after_sha": "b2458db3eb33c4d070c7aa743fb94af337f8dce99ce13e5de47e77c4f54137f0"
+        },
+        {
+            "path": "public/erp_catalogo_maestro.php",
+            "before_exists": true,
+            "after_sha": "6c9eabbdaeaa167da18e39602cb2dbfc81e16f7cc07ffd35b75a83eba1540986"
+        },
+        {
+            "path": "public/erp_catalogo_reportes.php",
+            "before_exists": true,
+            "after_sha": "18f52e6b32e207df849205174a354b24d0ffcd15cc3e8f82116af5a8c830f7be"
+        },
+        {
+            "path": "public/erp_comparativo_sucursales.php",
+            "before_exists": true,
+            "after_sha": "111a54fcbc5aa4edd9006caf027d49041c9ab99254979b0fa099cbfc8ddb2eff"
+        },
+        {
+            "path": "public/erp_compras_alerta_resolver.php",
+            "before_exists": true,
+            "after_sha": "9a6f79c54379ef8c8a5674dfe5966eb08ad48d2220caf2a2338526c44a76fa94"
+        },
+        {
+            "path": "public/erp_compras_alertas_seguimiento.php",
+            "before_exists": true,
+            "after_sha": "9487d722a53640abb80288d9c804908431b607cc46c6f098d088a4d96205544d"
+        },
+        {
+            "path": "public/erp_compras_avisos.php",
+            "before_exists": true,
+            "after_sha": "de05b877b233b49ca4badb49a6b4a6a44e227ca12e4949189729318519c3b8d6"
+        },
+        {
+            "path": "public/erp_compras_inicio.php",
+            "before_exists": true,
+            "after_sha": "8726e6fc1f102adf1046d28e99523142f77267aa7bccf1077dcfaba05b85c79f"
+        },
+        {
+            "path": "public/erp_conciliacion_diaria_cajas.php",
+            "before_exists": true,
+            "after_sha": "b8bc3499f9b0c7a63bdf15fe5f4858cfb5b4c48f4478678697f097d78ebac61f"
+        },
+        {
+            "path": "public/erp_conciliacion_gestion.php",
+            "before_exists": true,
+            "after_sha": "9416434c673ec64df3fac13a72c9708cd13aac2fe00c8c5c87f325b7e3eebd4c"
+        },
+        {
+            "path": "public/erp_conciliacion_integral.php",
+            "before_exists": true,
+            "after_sha": "78b0502e4b1203354b40c1dbae086ad71bcb2681f6c03c128f5f335ab94c7f45"
+        },
+        {
+            "path": "public/erp_conciliacion_inventarios.php",
+            "before_exists": true,
+            "after_sha": "f2fa312b2271beed7dfe0cd4f46976b1d10e1bc2a014d07a7ea242e54d2d0893"
+        },
+        {
+            "path": "public/erp_control_cajas.php",
+            "before_exists": true,
+            "after_sha": "374ce1e3ec262ca0e68f9256205a0f94e0b2357d0f53ef839079279551b2c210"
+        },
+        {
+            "path": "public/erp_cortes_boveda.php",
+            "before_exists": true,
+            "after_sha": "b7d0e8399c63175c0cb41f68b4e566a44deecd6e2e51096d79c5fe0a8447cd0a"
+        },
+        {
+            "path": "public/erp_dashboard_gerencial.php",
+            "before_exists": true,
+            "after_sha": "dd7de86d6ae9bdbc0e19b9e1ff3765ffbde21bc734fec7b6f9d4f92d74034556"
+        },
+        {
+            "path": "public/erp_diagnostico.php",
+            "before_exists": true,
+            "after_sha": "598c592e5469bcc2d1c2792fecf3a15c6427dd0bb803499f6f884df8854a54b1"
+        },
+        {
+            "path": "public/erp_eficiencia_cajeros.php",
+            "before_exists": true,
+            "after_sha": "b125fd100756a5bfed2c46a5b69d11f1edf32f8aca2890c4f76e30ca236334e4"
+        },
+        {
+            "path": "public/erp_eficiencia_diagnostico.php",
+            "before_exists": true,
+            "after_sha": "e6c93d20ec9937dca3d25a4fc373230609f91f4554caf148c5330e8f467948af"
+        },
+        {
+            "path": "public/erp_historial_precios.php",
+            "before_exists": true,
+            "after_sha": "bdde02c96adfc34d178fa58b6e3d0dd193871af28221d2977bda28cc82719740"
+        },
+        {
+            "path": "public/erp_kardex_general.php",
+            "before_exists": true,
+            "after_sha": "93e347924aefaa1790448d3c73ce42ec005cad1f681e7160260ed4771d5adf65"
+        },
+        {
+            "path": "public/erp_mi_correo.php",
+            "before_exists": true,
+            "after_sha": "4a3c97258c7a9d9c185e0f57e6c5fb2aaebdc297e36f446adfcd6871362089d6"
+        },
+        {
+            "path": "public/erp_notificaciones.php",
+            "before_exists": true,
+            "after_sha": "417ea0af8f869b319268e9a41793aef5047d13c204f729147de484958abea9e1"
+        },
+        {
+            "path": "public/erp_oc_autorizaciones.php",
+            "before_exists": true,
+            "after_sha": "5705850a90c7129bd8803938532cd3857a65fd7d892d0277acd7b2792ca98c97"
+        },
+        {
+            "path": "public/erp_oc_cierre_controlado.php",
+            "before_exists": true,
+            "after_sha": "42ce73f61ba4c41e306cb6dd56cecf80ab9d3cbffdc653c9de83ccac17adda15"
+        },
+        {
+            "path": "public/erp_oc_entrada_protegida.php",
+            "before_exists": true,
+            "after_sha": "16fcdcdafecba7257751506623228530a8f15320c3056fd0ff65f2faad72a9ac"
+        },
+        {
+            "path": "public/erp_oc_facturas_seguimiento.php",
+            "before_exists": true,
+            "after_sha": "dc399745b07136ebd42b306a5c6bd6c5f66eacd352f46322f220c35650a78de3"
+        },
+        {
+            "path": "public/erp_oc_integracion_facturas.php",
+            "before_exists": true,
+            "after_sha": "48c5cc04068285bbfee528bdd3aefb9ff0e32657261c4ff393f0ec1021ac1aa3"
+        },
+        {
+            "path": "public/erp_oc_inventarios.php",
+            "before_exists": true,
+            "after_sha": "b12952674d98a8a0e346f882a7fdec1bb72f7c40fd3712ca8bc02cb4a8d0d9a7"
+        },
+        {
+            "path": "public/erp_oc_win.php",
+            "before_exists": true,
+            "after_sha": "5ac2a5d49eac0f131ef9075906ec8525784daaea49e00b5660a299f68622a49e"
+        },
+        {
+            "path": "public/erp_oc_win_enviar.php",
+            "before_exists": true,
+            "after_sha": "87c3654b021c6d075e965e5811738fccffd5d104871f235a134ee51be4471a04"
+        },
+        {
+            "path": "public/erp_oc_win_gerentes.php",
+            "before_exists": true,
+            "after_sha": "4cb3335d73810a08f873cb65d811d2889bbff275b4496f85cea3fca7e46be0ad"
+        },
+        {
+            "path": "public/erp_permisos_usuarios.php",
+            "before_exists": true,
+            "after_sha": "e06f57ed5b5996796c1ef8f8b44fdbaadc3b227f9b1b202cc9ce29c92db91cb2"
+        },
+        {
+            "path": "public/erp_pos_devoluciones_almacen.php",
+            "before_exists": true,
+            "after_sha": "4254042e1d66096a69d8f1b45ee0aa830085ca32fb8c829ff96bdbeb69ce4d1d"
+        },
+        {
+            "path": "public/erp_pos_reversion_ticket.php",
+            "before_exists": true,
+            "after_sha": "6d12bdf3334473d4c24432fd8556cc23a711f69639f23ca2a70ccaf0ca70e59b"
+        },
+        {
+            "path": "public/erp_pos_reversiones.php",
+            "before_exists": true,
+            "after_sha": "d5a1a06316731e79d952f6c09f553383632873c19fabffa26c432bc461276e8a"
+        },
+        {
+            "path": "public/erp_producto_alta.php",
+            "before_exists": true,
+            "after_sha": "42c484bc49b56b9b4ddfa9963ec34e436dce053424158896ab0a1d67ebf45d03"
+        },
+        {
+            "path": "public/erp_proveedores.php",
+            "before_exists": true,
+            "after_sha": "110442109632ce460ff3d8c4ab26258e29da76af48c538dcaa99d91adf1cef6b"
+        },
+        {
+            "path": "public/erp_pruebas_integrales.php",
+            "before_exists": true,
+            "after_sha": "0400098c1a5003fab2da4907e53494e74cefc035d3a9b35cb7b91c5c2ec784c7"
+        },
+        {
+            "path": "public/erp_recepcion_calidad.php",
+            "before_exists": true,
+            "after_sha": "e85939e2cfec8c4c0c693a93079c348fec0e62581ea93024d96f79b81377731e"
+        },
+        {
+            "path": "public/erp_recepcion_registrar.php",
+            "before_exists": true,
+            "after_sha": "06663f75d58b38408aad05212f54040b3f130c6f06af1d67177ea1bc9014adb2"
+        },
+        {
+            "path": "public/erp_recepciones_calidad_historial.php",
+            "before_exists": true,
+            "after_sha": "5eb7cc6a4bf436f1483d58b44a4879570d9a950a1eb0d85b5cf6e5f42ab633e9"
+        },
+        {
+            "path": "public/erp_recepciones_historial.php",
+            "before_exists": true,
+            "after_sha": "a91af1091f925c423bf162b2cc00c2eb1c548d35b95bb656104ffed76e1a1775"
+        },
+        {
+            "path": "public/erp_recepciones_pendientes.php",
+            "before_exists": true,
+            "after_sha": "34012661277b7cf75ce3554c157bff69701e35d7e03d18110f6b40c8252fd71c"
+        },
+        {
+            "path": "public/erp_rendimiento_cajeros.php",
+            "before_exists": true,
+            "after_sha": "24ee5fbc17413586a2239814a2167a9270b08a1055bf2a8c1355e35de2b982f3"
+        },
+        {
+            "path": "public/erp_rendimiento_sistema.php",
+            "before_exists": true,
+            "after_sha": "b5d9f74b60682b521d9e59991714d2aa1d64ce680066d707918e225b2d66850c"
+        },
+        {
+            "path": "public/erp_reservas_almacen.php",
+            "before_exists": true,
+            "after_sha": "c6934f2ad7d819e0c1dc346612b807f5e7b87b7a12f0b297b726598e8a2f9e6f"
+        },
+        {
+            "path": "public/erp_resurtidos_pos.php",
+            "before_exists": true,
+            "after_sha": "4408fd64723b0120b6e880cbc8ecab238c72f173bedda7b48f504326e3e743a5"
+        },
+        {
+            "path": "public/erp_retiros_diarios.php",
+            "before_exists": true,
+            "after_sha": "3bc61f92e06c7cd4b2a4764b0991f9088ec8749d63dd13e8e6973c8df937b903"
+        },
+        {
+            "path": "public/erp_simulador_operaciones.php",
+            "before_exists": true,
+            "after_sha": "750395b37e8a323a0b465eb63cf1a26128c977bc4a8e87de3637458a5b3ec25a"
+        },
+        {
+            "path": "public/erp_tesoreria.php",
+            "before_exists": true,
+            "after_sha": "1b4652da62fe57bfd91a4281d03500c672881e248f374973dbf027b73014aaf5"
+        },
+        {
+            "path": "public/erp_validacion_operativa.php",
+            "before_exists": true,
+            "after_sha": "d0da7983ab0f7b742b0daf12a7776a2e93206681c2dd6628e749f4a0775143ad"
+        },
+        {
+            "path": "public/gyd_canjes.php",
+            "before_exists": true,
+            "after_sha": "0ffa8d901040bc23146324e53505b87171b518ea4710a226e014dcd79f73754a"
+        },
+        {
+            "path": "public/gyd_clientes.php",
+            "before_exists": true,
+            "after_sha": "2938080251457809a9d2a35d44d215e0dc07d107cd92ba49c9f078560609cefb"
+        },
+        {
+            "path": "public/gyd_cortes_caja.php",
+            "before_exists": true,
+            "after_sha": "a3698fedfe344b427073cb08c81cc0a80542c0018cc238b13b48358b6a4d15e5"
+        },
+        {
+            "path": "public/gyd_lab_v40.php",
+            "before_exists": true,
+            "after_sha": "bf7de7c61183eef8ea6afacd1af778bdb1af90a9337a45d7d1f4f57790ec5c2f"
+        },
+        {
+            "path": "public/gyd_lab_v41.php",
+            "before_exists": true,
+            "after_sha": "84375d887061091cced71577ef87a3b6600c8b9ad9249638bfd38a2ac6a10fc6"
+        },
+        {
+            "path": "public/gyd_panel_cajas.php",
+            "before_exists": true,
+            "after_sha": "60465bb0c3e9b9cc27b11d8d2102615806ed40f6797e35f8bd950d4201750051"
+        },
+        {
+            "path": "public/gyd_recompensas.php",
+            "before_exists": true,
+            "after_sha": "10ec4f1bbe60ac6ca37cfe1f6bd696d3dfd79747165c954a1bf54ce7376ae326"
+        },
+        {
+            "path": "public/gyd_reportes_gerenciales.php",
+            "before_exists": true,
+            "after_sha": "f35269d7cee023c50ac88ae59311b8af02e0750fb243b582288afe08afa4571d"
+        },
+        {
+            "path": "public/importar_productos.php",
+            "before_exists": true,
+            "after_sha": "744d5ffadc43a63e02768ba5148a710e4c9c2e08b94d6db17f0f8b4c1a5a5732"
+        },
+        {
+            "path": "public/imprimir_entrada.php",
+            "before_exists": true,
+            "after_sha": "1e9c3abae4d15a1463c6fbb7c7ade5ca413d30cb6c2f390c42dccf7f5a5760a9"
+        },
+        {
+            "path": "public/imprimir_salida.php",
+            "before_exists": true,
+            "after_sha": "d20cda1dab6e7eeb72d1bd4e845191f5fc2ca61dac761818d20469328362e051"
+        },
+        {
+            "path": "public/peticiones_traspasos.php",
+            "before_exists": true,
+            "after_sha": "19b37d1cfd9a99fc91cf17567b1b86d1ad6b45a8c58303eb0470be06f1d52baa"
+        },
+        {
+            "path": "public/peticiones_traspasos_imprimir.php",
+            "before_exists": true,
+            "after_sha": "8dad2b7cf9ca9c9dbbbd0bb3da6efbbfa184fbb663c7754835638416ceb14f92"
+        },
+        {
+            "path": "public/pos.php",
+            "before_exists": true,
+            "after_sha": "cbadbf888fa63ecdf9d0d25e30b77d5568f4b2dd5ecba55b08c131ddc89daea2"
+        },
+        {
+            "path": "public/pos_arqueos.php",
+            "before_exists": true,
+            "after_sha": "5f952179532201431094533f7d42bea11bb4cd68f30786f837a2bbe4d3965d4d"
+        },
+        {
+            "path": "public/pos_conciliacion_turno.php",
+            "before_exists": true,
+            "after_sha": "6aa8a7528f74fac036f9cab6535cc3ee5465da315bce154db625f0558e92bf93"
+        },
+        {
+            "path": "public/pos_configurar.php",
+            "before_exists": true,
+            "after_sha": "9c6b303fb36277e0017f4602cbdc619b56e1050d2860eb9f6eb8d4d9852e74af"
+        },
+        {
+            "path": "public/pos_corte_retiros.php",
+            "before_exists": true,
+            "after_sha": "0b747c777f6139b66cc3e237e6e20ae353fd14e4156ef5ff3ad59b3417f0bdd8"
+        },
+        {
+            "path": "public/pos_prueba.php",
+            "before_exists": true,
+            "after_sha": "ba7fba5740e81db09357980314ed69a456e587228b6b76ad78ca15e1b87e0907"
+        },
+        {
+            "path": "public/pos_retiro_ticket.php",
+            "before_exists": true,
+            "after_sha": "5cdeca06e8849cd2470a6eff742c5c8f2ee3953909a4ae69c541b447658a603e"
+        },
+        {
+            "path": "public/pos_retiros.php",
+            "before_exists": true,
+            "after_sha": "21a9f243ac66652de2e7a594f52f83d607e3e5eb994bc56fec18ee7eee2de181"
+        },
+        {
+            "path": "public/pos_ticket.php",
+            "before_exists": true,
+            "after_sha": "38be8f887a7138287aa96e32ee0d718f69506e7c64b1ecd4b4a78318a474ad63"
+        },
+        {
+            "path": "public/pos_ticket_prueba.php",
+            "before_exists": true,
+            "after_sha": "c88ea72cd367399c76e85730ad8929015d71ace19cf74a8569af899b70ec831e"
+        },
+        {
+            "path": "public/respaldos.php",
+            "before_exists": true,
+            "after_sha": "297d8722824e0b82add824660b857821dfced3a855387e6db4df4da1ba1d53d2"
+        },
+        {
+            "path": "public/traspasos.php",
+            "before_exists": true,
+            "after_sha": "1c980529b31ef2352cb3643e1ffa8c9bf755802faee58110061419a9dda95454"
+        }
+    ]
+}
