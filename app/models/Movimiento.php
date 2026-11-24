@@ -2,7 +2,6 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/Proveedor.php';
-require_once __DIR__ . '/../helpers/gyd_oc_stock_guard.php';
 
 class Movimiento
 {
@@ -1043,30 +1042,6 @@ class Movimiento
 
             $movimientoId = (int)$this->conn->lastInsertId();
 
-            // ERP G&D: registrar vínculo y validar cupo en esta misma transacción, ANTES del stock.
-            gyd_oc_stock_entrada($this->conn,$data,$detalle,$movimientoId);
-
-            // OCAV_MOVIMIENTO_ATOMICO_V1: el vínculo y las existencias
-            // se confirman juntos. La clave UNIQUE recepcion_id impide doble aplicación.
-            $origenOc=(int)($data['oc_recepcion_id']??0);
-            if($origenOc>0) {
-                if(($data['tipo_movimiento']??'')!=='ENTRADA')throw new RuntimeException('El origen OC sólo se admite para entradas.');
-                $q=$this->conn->prepare('SELECT orden_id FROM erp_oc_recepciones WHERE id=?');
-                $q->execute([$origenOc]);$ordenOrigen=(int)$q->fetchColumn();
-                if($ordenOrigen<1)throw new RuntimeException('Recepción OC inexistente.');
-                $q=$this->conn->prepare('SELECT id FROM erp_ordenes_compra WHERE id=? FOR UPDATE');
-                $q->execute([$ordenOrigen]);
-                $s=$this->conn->prepare("SELECT destino,estado FROM erp_oc_recepciones WHERE id=? FOR UPDATE");
-                $s->execute([$origenOc]);$r=$s->fetch(PDO::FETCH_ASSOC);
-                $esperado=['HIDALGO_BODEGA'=>1,'TUXTLA_BODEGA'=>3][$r['destino']??'']??0;
-                if(!$r||$r['estado']!=='REGISTRADA'||$esperado!==$almacenId)throw new RuntimeException('Recepción de Bodega inválida o almacén distinto.');
-                $dup=$this->conn->prepare("SELECT COUNT(*) FROM erp_facturas_stock_aplicaciones a JOIN erp_facturas f ON f.id=a.factura_id WHERE f.orden_id=? AND a.destino='ALMACEN'");
-                $dup->execute([$ordenOrigen]);
-                if((int)$dup->fetchColumn()>0)throw new RuntimeException('Ya hubo una aplicación desde factura a este Almacén. Conciliar antes de crear otra entrada.');
-                $s=$this->conn->prepare('INSERT INTO erp_oc_entrada_vinculos(recepcion_id,movimiento_id,usuario_id) VALUES (?,?,?)');
-                $s->execute([$origenOc,$movimientoId,(int)($data['usuario_id']??0)]);
-            }
-
             $sqlDetalle = "INSERT INTO movimiento_detalle (
                                 movimiento_id, producto_id, lote_id, cantidad,
                                 costo_unitario, precio_unitario, ubicacion
@@ -1124,15 +1099,12 @@ class Movimiento
 
                 if ($data['tipo_movimiento'] === 'ENTRADA') {
                     // Primero se calcula con la existencia que había antes de esta entrada.
-                    // OCAV_COSTOS_SEPARADOS_V1: Compras controla los costos maestros.
-                    if ($origenOc===0) {
-                        $this->actualizarCostosPorEntrada(
-                            $productoId,
-                            $cantidad,
-                            (float)$item['costo_unitario'],
-                            $ubicacion
-                        );
-                    }
+                    $this->actualizarCostosPorEntrada(
+                        $productoId,
+                        $cantidad,
+                        (float)$item['costo_unitario'],
+                        $ubicacion
+                    );
 
                     $this->aumentarExistencia(
                         $productoId,
@@ -2131,7 +2103,6 @@ class Movimiento
     {
         try {
             $this->conn->beginTransaction();
-            gyd_oc_stock_bloquear_edicion($this->conn,$movimientoId); // Entrada ligada a OC
 
             $sqlMov = "SELECT id, almacen_id, cancelado
                        FROM movimientos
@@ -2473,7 +2444,6 @@ public function actualizarMovimiento(int $movimientoId, array $data, array $deta
 {
     try {
         $this->conn->beginTransaction();
-        gyd_oc_stock_bloquear_edicion($this->conn,$movimientoId); // Entrada ligada a OC
 
         $almacenId = (int)($data['almacen_id'] ?? 0);
         $sucursal = $this->obtenerSucursalPorAlmacenId($almacenId);

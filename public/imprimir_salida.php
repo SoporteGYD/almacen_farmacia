@@ -615,20 +615,5 @@ function imprimirYLimpiar() {
 
 </div>
 
-
-<?php /* GYD_NAV_ROLE_V1 */
-$__gydNavigationAccount = function_exists('isLoggedIn') && isLoggedIn() && function_exists('currentUser')
-    ? (currentUser() ?: []) : [];
-$__gydNavigationRole = strtoupper(trim((string)($__gydNavigationAccount['rol_original'] ?? $__gydNavigationAccount['rol'] ?? '')));
-$__gydNavigationAllowed = in_array($__gydNavigationRole, ['DIRECCION','ADMINISTRADOR','ADMIN','COMPRAS'], true);
-if (!defined('GYD_HIDE_GLOBAL_NAV') && $__gydNavigationAllowed):
-$__gydNavigationHome = $__gydNavigationRole === 'COMPRAS' ? 'erp_compras_inicio.php' : 'dashboard.php';
-?>
-<link rel="stylesheet" href="assets/css/gyd_nav_global.css?v=5">
-<script>window.GYD_NAV_ENABLED=true;window.GYD_NAV_HOME=<?=json_encode($__gydNavigationHome, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;window.GYD_NAV_POS='pos.php';</script>
-<script src="assets/js/gyd_nav_global.js?v=5"></script>
-<?php endif; unset($__gydNavigationAccount,$__gydNavigationRole,$__gydNavigationAllowed,$__gydNavigationHome); ?>
-<!-- GYD_UNA_PESTANA_INTERNA -->
-<script src="assets/js/gyd_una_pestana.js?v=1"></script>
 </body>
 </html>

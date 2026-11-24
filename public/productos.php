@@ -11,11 +11,6 @@ $user = currentUser();
 
 $rolUsuario = strtoupper(trim($user['rol'] ?? ''));
 $esAdmin = in_array($rolUsuario, ['ADMINISTRADOR', 'ADMIN'], true);
-// Protección CSRF para todas las escrituras del catálogo y las ubicaciones.
-if (empty($_SESSION['gyd_f2_productos_csrf'])) {
-    $_SESSION['gyd_f2_productos_csrf'] = bin2hex(random_bytes(32));
-}
-$csrfProductos = (string) $_SESSION['gyd_f2_productos_csrf'];
 
 $almacenNombre = strtoupper(trim($user['almacen_nombre'] ?? ''));
 
@@ -26,10 +21,6 @@ if (str_contains($almacenNombre, 'HIDALGO')) {
 } else {
     $sucursalUsuario = $almacenNombre;
 }
-$puedeUbicaciones = $esAdmin || (
-    in_array($rolUsuario, ['ENCARGADO', 'GERENTE'], true)
-    && in_array($sucursalUsuario, ['CIUDAD HIDALGO', 'TUXTLA'], true)
-);
 
 $message = '';
 $messageType = '';
@@ -46,31 +37,7 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 25;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!hash_equals($csrfProductos, (string) ($_POST['csrf'] ?? ''))) {
-        http_response_code(419);
-        exit('Formulario caducado o no autorizado. Actualiza Productos y vuelve a intentarlo.');
-    }
-    $action = (string) ($_POST['action'] ?? '');
-    $accionesCatalogo = ['create', 'update', 'delete'];
-    $accionesUbicacion = ['guardar_ubicacion_existencia', 'editar_ubicacion_existencia', 'eliminar_ubicacion'];
-    if (in_array($action, $accionesCatalogo, true) && !$esAdmin) {
-        http_response_code(403);
-        exit('Solo Administración puede crear, modificar o desactivar productos en este módulo.');
-    }
-    if (in_array($action, $accionesUbicacion, true) && !$esAdmin) {
-        $destino = strtoupper(trim((string) ($_POST['sucursal'] ?? '')));
-        $autorizado = in_array($rolUsuario, ['ENCARGADO', 'GERENTE'], true)
-            && in_array($sucursalUsuario, ['CIUDAD HIDALGO', 'TUXTLA'], true)
-            && $destino === $sucursalUsuario;
-        if (!$autorizado) {
-            http_response_code(403);
-            exit('No puedes modificar ubicaciones de otra sucursal o con este perfil.');
-        }
-    }
-    if (!in_array($action, array_merge($accionesCatalogo, $accionesUbicacion), true)) {
-        http_response_code(400);
-        exit('Operación de Productos desconocida.');
-    }
+    $action = $_POST['action'] ?? '';
 
     if ($action === 'create') {
         $result = $controller->store($_POST);
@@ -587,7 +554,7 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
 
 <div class="module-header">
     <div>
-        <h2>Catálogo de Productos</h2><?php if ($esAdmin): ?><a href="erp_producto_alta.php" style="display:inline-block;margin-top:10px;color:#12568d;font-weight:bold">+ Alta avanzada · Compras / WinCaja</a><?php endif; ?>
+        <h2>Catálogo de Productos</h2>
         <p>
             Catálogo general de productos y control de existencias por almacén.
             <?php if (!$esAdmin && $sucursalUsuario !== ''): ?>
@@ -604,13 +571,10 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
 <?php endif; ?>
 
 <div class="erp-container">
-    <datalist id="listaUbicaciones"></datalist>
-    <?php if ($esAdmin): ?>
     <div class="erp-form-card">
         <h3><?= $editando ? 'Editar producto' : 'Nuevo producto' ?></h3>
 
         <form method="POST" action="">
-            <input type="hidden" name="csrf" value="<?= e($csrfProductos) ?>">
             <input type="hidden" name="action" value="<?= $editando ? 'update' : 'create' ?>">
 
             <?php if ($editando): ?>
@@ -710,7 +674,7 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
                         placeholder="R_N_Z__"
                         value="<?= e($editando['ubicacion'] ?? '') ?>"
                     >
-
+                    <datalist id="listaUbicaciones"></datalist>
                     <small class="ubicacion-rapida-ayuda">
                         Escribe solo números: <strong>1 1 01</strong> se convierte en <strong>R1N1Z01</strong>. Usa ↑ ↓ y Enter.
                     </small>
@@ -728,18 +692,15 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
             </div>
         </form>
     </div>
-    <?php endif; ?>
 
     <div class="erp-table-card">
         <div class="table-topbar">
             <div class="table-topbar-actions">
                 <h3>Lista de productos</h3>
 
-                <?php if ($esAdmin): ?>
                 <a href="importar_productos.php" class="btn-primary-action">
                     Importar Excel
                 </a>
-                <?php endif; ?>
             </div>
         </div>
 
@@ -888,7 +849,6 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
                                                 }
                                                 ?>
 
-                                                <?php if ($puedeUbicaciones): ?>
                                                 <button
                                                     type="button"
                                                     class="ubicacion-badge <?= $classStock ?>"
@@ -902,9 +862,6 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
                                                 >
                                                     <?= e($ubi) ?> (<?= $exist ?>)
                                                 </button>
-                                                <?php else: ?>
-                                                <span class="ubicacion-badge <?= $classStock ?>"><?= e($ubi) ?> (<?= $exist ?>)</span>
-                                                <?php endif; ?>
                                             <?php endforeach; ?>
                                         </div>
                                     <?php else: ?>
@@ -914,7 +871,6 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
 
                                 <td>
                                     <div class="action-buttons">
-                                        <?php if ($puedeUbicaciones): ?>
                                         <button
                                             type="button"
                                             class="btn-search"
@@ -925,21 +881,18 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
                                         >
                                             + Ubicación
                                         </button>
-                                        <?php endif; ?>
-                                        <?php if ($esAdmin): ?>
+
                                         <a href="productos.php?edit=<?= (int)$producto['id'] ?>&page=<?= $page ?>&<?= e($queryBase) ?>" class="btn-edit">
                                             Editar
                                         </a>
 
                                         <form method="POST" action="" onsubmit="return confirm('¿Deseas eliminar este producto del catálogo visible? Se conservarán su historial y ubicaciones para poder reactivarlo posteriormente con el mismo código.');">
-            <input type="hidden" name="csrf" value="<?= e($csrfProductos) ?>">
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="id" value="<?= (int)$producto['id'] ?>">
                                             <button type="submit" class="btn-delete">
                                                 Eliminar
                                             </button>
                                         </form>
-                                        <?php endif; ?>
                                     </div>
                                  </td>
                              </tr>
@@ -1008,7 +961,6 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
         </div>
 
         <form method="POST">
-            <input type="hidden" name="csrf" value="<?= e($csrfProductos) ?>">
             <input type="hidden" name="action" value="guardar_ubicacion_existencia">
             <input type="hidden" name="codigo" id="codigoUbicacion">
 
@@ -1067,7 +1019,6 @@ function estadoStockProducto(array $producto, bool $esAdmin): array
         </div>
 
         <form method="POST" id="formEditarUbicacion">
-            <input type="hidden" name="csrf" value="<?= e($csrfProductos) ?>">
             <input type="hidden" name="action" value="editar_ubicacion_existencia">
             <input type="hidden" name="producto_id" id="editarProductoId">
             <input type="hidden" name="sucursal" id="editarSucursal">

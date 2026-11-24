@@ -1,4 +1,0 @@
-Options -Indexes
-<FilesMatch "(?i)^(\.env.*|.*\.(sql|key|bak|backup|log|inc|ini)|.*\.backup_.*)$">
-Require all denied
-</FilesMatch>

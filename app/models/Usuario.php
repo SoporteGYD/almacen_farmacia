@@ -194,15 +194,12 @@ class Usuario
                 u.created_at,
                 u.updated_at,
 
-                a.nombre AS almacen_nombre, pa.sucursal_id AS pos_sucursal_id, pa.caja_id AS pos_caja_id, ps.nombre AS pos_sucursal_nombre, pc.nombre AS pos_caja_nombre, pc.codigo AS pos_caja_codigo
+                a.nombre AS almacen_nombre
 
             FROM {$this->table} AS u
 
             LEFT JOIN almacenes AS a
                 ON u.almacen_id = a.id
-            LEFT JOIN pos_usuario_asignaciones pa ON pa.usuario_id=u.id
-            LEFT JOIN pos_sucursales ps ON ps.id=pa.sucursal_id
-            LEFT JOIN pos_cajas pc ON pc.id=pa.caja_id
 
             ORDER BY
                 u.nombre ASC

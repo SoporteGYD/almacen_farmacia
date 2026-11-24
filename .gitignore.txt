@@ -1,2 +1,0 @@
-/app/config/mail.local.php
-/app/config/erp_mail.key

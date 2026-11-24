@@ -417,7 +417,6 @@ class EntradaController
             'referencia' => $referenciaFinal,
             'observaciones' => $observaciones,
             'usuario_id' => $usuarioId,
-            'oc_recepcion_id' => (int)($postData['oc_recepcion_id']??0), // OCAV_LINK_MOVIMIENTO_V1
         ], $detalle);
 
         if (!empty($resultado['success'])) {

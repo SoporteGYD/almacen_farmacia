@@ -1,8 +1,0 @@
-{
-  "app/helpers/gyd_retiros.php": "66407bf6cc074004644fb0a8d847cbe847b36115bf99c06c1758c3c5a6ca56d6",
-  "public/pos_retiros.php": "fafd6460004c6cae895cb72c5120f9d2c3541703a1d0bf7d1fc85b037d266bac",
-  "public/pos_retiros_estado.php": "07c20ecfb304800fbaccf84edf69204d36f6bac8f93cf97e8e921f16b8c5c06c",
-  "public/erp_retiros_supervision.php": "71c923cde68adc05298ac1c1770092af0eeab26e73591baf98a6d4c196ca3c8d",
-  "public/assets/js/pos_retiros_aviso.js": "1ad99d8a5450ab5bdb1ddf3d3e195aa0cbaa64ceb58be0b289d65dff1a542a2e",
-  "tests/probar_retiros_supervisados.php": "f208882219a4aa2df41298bd113b769748cb471c27abd024d5bf687dd485f3da"
-}

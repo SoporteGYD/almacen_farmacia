@@ -7,19 +7,7 @@ require_once __DIR__ . '/../app/config/database.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 requireLogin();
-$importUser = currentUser() ?: [];
-$importRol = strtoupper(trim((string)($importUser['rol_original'] ?? $importUser['rol'] ?? '')));
-if (!in_array($importRol, ['ADMINISTRADOR', 'ADMIN', 'DIRECCION'], true)) {
-    http_response_code(403);
-    exit('Solo Administración / Dirección puede ejecutar importaciones de existencias.');
-}
-if (empty($_SESSION['import_excel_csrf'])) {
-    $_SESSION['import_excel_csrf'] = bin2hex(random_bytes(32));
-}
 
-// Sobrescribir cantidades desde un archivo no es una entrada/Kardex.
-// Inhabilitado por defecto hasta que Sistemas autorice conciliación supervisada.
-$stockDirectImportHabilitado = getenv('GD_ALLOW_DIRECT_STOCK_IMPORT') === '1';
 $db = new Database();
 $conn = $db->connect();
 
@@ -320,24 +308,6 @@ function snapshotProductoImportacion(
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!$stockDirectImportHabilitado) {
-        http_response_code(403);
-        exit('Sobrescritura directa de stock deshabilitada por seguridad. Utiliza Conteos y Ajustes Autorizados.');
-    }
-    if (!hash_equals((string)($_SESSION['import_excel_csrf'] ?? ''), (string)($_POST['csrf'] ?? ''))) {
-        http_response_code(403);
-        exit('Token de formulario inválido. Actualiza la página.');
-    }
-    if (($_POST['confirmar_sobrescritura'] ?? '') !== '1') {
-        http_response_code(422);
-        exit('Confirma expresamente la sustitución de existencias.');
-    }
-    if (($_FILES['excel']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
-        || (int)($_FILES['excel']['size'] ?? 0) > 8 * 1024 * 1024
-        || !in_array(strtolower(pathinfo((string)($_FILES['excel']['name'] ?? ''), PATHINFO_EXTENSION)), ['xlsx','xls'], true)) {
-        http_response_code(422);
-        exit('Archivo Excel inválido. Tamaño máximo permitido: 8 MB (XLSX/XLS).');
-    }
 
     $tipoImportacion = limpiarTexto($_POST['tipo_importacion'] ?? '');
     $sucursal = limpiarTexto($_POST['sucursal'] ?? '');
@@ -415,31 +385,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $almacenFila = $colAlmacen ? valorFila($fila, $colAlmacen) : '';
                     $almacenUsar = !campoVacio($almacenFila) ? $almacenFila : $sucursal;
                     $almacenUsar = normalizarSucursal($almacenUsar);
-                    $destinoElegido = normalizarSucursal($sucursal);
-                    if (!in_array($destinoElegido, ['CIUDAD HIDALGO', 'TUXTLA'], true)
-                        || $almacenUsar !== $destinoElegido) {
-                        $errores++;
-                        if (count($detalleErrores) < 10) {
-                            $detalleErrores[] = 'Fila '.$numeroFila.': el destino del archivo no coincide con el destino seleccionado.';
-                        }
-                        continue;
-                    }
 
                     if (!codigoValido($codigo)) {
                         $omitidos++;
                         continue;
                     }
 
-                    $existenciaRaw = trim(str_replace([',', ' '], '', $existenciaRaw));
-                    // Un valor corrupto jamás debe convertirse silenciosamente en cero.
-                    if (!preg_match('/^\d{1,9}$/D', $existenciaRaw)) {
-                        $errores++;
-                        if (count($detalleErrores) < 10) {
-                            $detalleErrores[] = 'Fila '.$numeroFila.': existencia inválida (no aplicada).';
-                        }
-                        continue;
+                    $existenciaRaw = str_replace([',', ' '], '', $existenciaRaw);
+                    $existencia = is_numeric($existenciaRaw) ? (int)$existenciaRaw : 0;
+
+                    if ($existencia < 0) {
+                        $existencia = 0;
                     }
-                    $existencia = (int)$existenciaRaw;
 
                     $productosEnExcel++;
 
@@ -477,12 +434,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $conn->beginTransaction();
 
-                        // Nunca desplazar la sucursal global del producto maestro
-                        // al importar stock de UNA ubicación: se comparte entre sedes.
-                        // No reactivar automáticamente artículos inactivos.
-                        if ((int)($producto['estado'] ?? 0) !== 1) {
-                            throw new RuntimeException('Producto inactivo: requiere reactivación autorizada.');
-                        }
+                        actualizarAlmacenProducto($conn, $productoId, $almacenUsar);
+
+                        reactivarProducto($conn, $productoId);
 
                         actualizarUbicacionExistencia(
                             $conn,
@@ -492,8 +446,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $existencia
                         );
 
-                        // "productos.ubicacion" es un valor global, no por sucursal;
-                        // no sobreescribirlo con una ubicación local importada.
+                        actualizarUbicacionPrincipal($conn, $productoId, $almacenUsar);
+
                         actualizarExistenciaBodega($conn, $productoId);
 
                         $conn->commit();
@@ -794,18 +748,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <h1 class="import-title">📥 Importar Productos</h1>
 
-        <p class="import-subtitle">Importación de conteos, bajo control de Administración.</p>
-        <?php if (!$stockDirectImportHabilitado): ?>
-        <div class="alert-error"><strong>Importación directa de existencias deshabilitada.</strong>
-        Para evitar stock sin movimiento auditable, registra diferencias mediante Conteos y Ajustes Autorizados.
-        La activación temporal solo es posible cuando Sistemas configure GD_ALLOW_DIRECT_STOCK_IMPORT=1
-        después de un respaldo y un procedimiento documentado.</div>
-        <?php endif; ?>
+        <p class="import-subtitle">
+            Restaura productos desde Excel, incluyendo productos con stock 0.
+        </p>
 
         <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="csrf" value="<?= htmlspecialchars((string)$_SESSION['import_excel_csrf'], ENT_QUOTES, 'UTF-8') ?>">
-                <label style="display:block;margin:15px 0;font-size:14px"><input type="checkbox" name="confirmar_sobrescritura" value="1" required> Entiendo que este archivo <strong>SUSTITUYE</strong> saldos existentes, NO registra una compra, venta ni traspaso. He revisado respaldo, sucursal y cantidades.</label>
-
 
             <div class="form-group">
                 <label>Tipo de importación</label>
@@ -886,20 +833,5 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-
-<?php /* GYD_NAV_ROLE_V1 */
-$__gydNavigationAccount = function_exists('isLoggedIn') && isLoggedIn() && function_exists('currentUser')
-    ? (currentUser() ?: []) : [];
-$__gydNavigationRole = strtoupper(trim((string)($__gydNavigationAccount['rol_original'] ?? $__gydNavigationAccount['rol'] ?? '')));
-$__gydNavigationAllowed = in_array($__gydNavigationRole, ['DIRECCION','ADMINISTRADOR','ADMIN','COMPRAS'], true);
-if (!defined('GYD_HIDE_GLOBAL_NAV') && $__gydNavigationAllowed):
-$__gydNavigationHome = $__gydNavigationRole === 'COMPRAS' ? 'erp_compras_inicio.php' : 'dashboard.php';
-?>
-<link rel="stylesheet" href="assets/css/gyd_nav_global.css?v=5">
-<script>window.GYD_NAV_ENABLED=true;window.GYD_NAV_HOME=<?=json_encode($__gydNavigationHome, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;window.GYD_NAV_POS='pos.php';</script>
-<script src="assets/js/gyd_nav_global.js?v=5"></script>
-<?php endif; unset($__gydNavigationAccount,$__gydNavigationRole,$__gydNavigationAllowed,$__gydNavigationHome); ?>
-<!-- GYD_UNA_PESTANA_INTERNA -->
-<script src="assets/js/gyd_una_pestana.js?v=1"></script>
 </body>
 </html>

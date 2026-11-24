@@ -3,13 +3,8 @@
 require_once __DIR__ . '/../app/helpers/auth.php';
 require_once __DIR__ . '/../app/helpers/utils.php';
 require_once __DIR__ . '/../app/controllers/EntradaController.php';
-require_once __DIR__ . '/../app/helpers/erp_oc_avisos.php'; // OCAV_ENTRADA_ORIGEN_V1
 
 requireLogin();
-// G&D_RUTA_OC_PROTEGIDA: enlaces antiguos hacia Entrada clásica se remiten al control OC.
-if(isset($_GET['oc_recepcion'])){
-    header('Location: erp_oc_entrada_protegida.php?rec='.(int)$_GET['oc_recepcion'],true,303);exit;
-}
 
 $user = currentUser();
 $controller = new EntradaController();
@@ -206,27 +201,6 @@ foreach ($partesReferencia as $parte) {
     }
 }
 
-// OCAV_ORIGEN_ENTRADA: sólo una recepción registrada de Bodega, nunca una factura POS.
-$ocavOrigenId=(int)($_POST['oc_recepcion_id']??$_GET['oc_recepcion']??0);
-$ocavOrigen=null;$ocavOrigenError='';
-if($ocavOrigenId>0 && $_SERVER['REQUEST_METHOD']==='POST') {
-  // OCAV_JSON_ENTRADA_V1: normalizar partidas compactas, después se cotejan con BD.
-  try {
-    $json=json_decode((string)($_POST['ocav_json']??''),true,512,JSON_THROW_ON_ERROR);
-    if(!is_array($json)||!array_is_list($json)||!$json)throw new RuntimeException('Detalle OC vacío.');
-    foreach(['producto_id','cantidad','costo_unitario','numero_lote','fecha_caducidad','ubicacion'] as $k)$_POST[$k]=[];
-    foreach($json as $fila){
-      if(!is_array($fila))throw new RuntimeException('Partida de entrada inválida.');
-      foreach(['producto_id','cantidad','costo_unitario','numero_lote','fecha_caducidad','ubicacion'] as $k)$_POST[$k][]=$fila[$k]??'';
-    }
-  } catch(Throwable $e) { $ocavOrigenError='No se pudo leer el detalle completo de la entrada: '.$e->getMessage(); }
-}
-if ($ocavOrigenId>0 && !$modoEdicion) {
-    try {
-        $ocavOrigen=ocav_origen_entrada((new Database())->connect(),$ocavOrigenId,$user ?: []);
-    } catch(Throwable $e) { $ocavOrigenError=$e->getMessage(); }
-}
-
 // Procesar formulario
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $editarPostId = (int)($_POST['editar_id'] ?? 0);
@@ -234,14 +208,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($editarPostId > 0) {
         $result = $controller->actualizar($editarPostId, $_POST, (int)$user['id']);
-    } elseif ($ocavOrigenId>0) {
-        try {
-            if(!$ocavOrigen)throw new RuntimeException($ocavOrigenError?:'No se pudo validar la recepción.');
-            ocav_validar_entrada($_POST,$ocavOrigen);
-            // Movimiento creará vínculo único con recepción en la misma transacción que stock.
-            $_POST['oc_recepcion_id']=$ocavOrigenId;
-            $result=$controller->guardar($_POST,(int)$user['id']);
-        } catch(Throwable $ex) { $result=['success'=>false,'message'=>$ex->getMessage()]; }
     } else {
         $result = $controller->guardar($_POST, (int)$user['id']);
     }
@@ -1201,18 +1167,7 @@ body {
     </div>
 <?php endif; ?>
 
-<?php if($ocavOrigenId>0): ?>
-<div class="alert alert-warning" style="padding:14px;margin:10px 0;border:1px solid #e9bf7b;background:#fff4da;border-radius:10px">
-<b>Entrada desde recepción OC:</b>
-<?= e($ocavOrigen['folio']??'No disponible') ?>.
-Las cantidades recibidas y el lote se toman del registro físico; debes elegir ubicaciones reales.
-<b>NO cambies las cantidades para intentar cuadrar el stock con Farmacia.</b>
-Esta entrada afecta solamente el inventario físico de Bodega, no representa la factura del POS.
-<?php if($ocavOrigenError):?><p style="color:#a21919"><?= e($ocavOrigenError) ?></p><?php endif;?>
-</div>
-<?php endif;?>
 <form method="POST" id="formEntrada">
-<?php if($ocavOrigenId>0):?><input type="hidden" name="oc_recepcion_id" value="<?= $ocavOrigenId ?>"><?php endif;?>
     <?php if ($modoEdicion && $entradaEditar): ?>
         <input type="hidden" name="editar_id" value="<?= (int)$entradaEditar['id'] ?>">
     <?php else: ?>
@@ -1594,7 +1549,6 @@ Esta entrada afecta solamente el inventario físico de Bodega, no representa la 
 <script>
 // ===== VARIABLES =====
 const productos = <?php echo json_encode($productosJson, JSON_UNESCAPED_UNICODE); ?>;
-const ocavPrecarga = <?= json_encode($ocavOrigen ?: null,JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE) ?>;
 const csrfEntrada = <?php echo json_encode($csrfEntrada, JSON_UNESCAPED_UNICODE); ?>;
 const modoEdicionEntrada = <?php echo $modoEdicion ? 'true' : 'false'; ?>;
 
@@ -2855,23 +2809,6 @@ function guardarEntrada() {
         return;
     }
     
-    // OCAV_JSON_GUARDAR_V1: evitar max_input_vars en entradas de OC grandes.
-    if(ocavPrecarga){
-      const form=document.getElementById('formEntrada');
-      const datos=Array.from(form.querySelectorAll('#detalleBody tr.fila-producto-capturado')).map(tr=>{
-        const campo=k=>tr.querySelector('input[name="'+k+'[]"]')?.value||'';
-        return {producto_id:campo('producto_id'),cantidad:campo('cantidad'),
-         costo_unitario:campo('costo_unitario'),numero_lote:campo('numero_lote'),
-         fecha_caducidad:campo('fecha_caducidad'),ubicacion:campo('ubicacion')};
-      });
-      if(!datos.length){mostrarToast('No hay partidas válidas','error');return;}
-      let compact=form.querySelector('input[name="ocav_json"]');
-      if(!compact){compact=document.createElement('input');compact.type='hidden';compact.name='ocav_json';form.appendChild(compact);}
-      compact.value=JSON.stringify(datos);
-      for(const tr of form.querySelectorAll('#detalleBody tr.fila-producto-capturado')){
-        for(const input of tr.querySelectorAll('input[name$="[]"]'))input.disabled=true;
-      }
-    }
     document.getElementById('formEntrada').submit();
 }
 
@@ -3089,39 +3026,6 @@ document.addEventListener('DOMContentLoaded', function() {
     tipoDocumento?.addEventListener('change', construirReferencia);
     folioDocumento?.addEventListener('input', construirReferencia);
     
-    // OCAV_PREFILL_JS_V1: usar valores recibidos; ninguna entrada se aplica sin guardar.
-    if (ocavPrecarga && !modoEdicionEntrada) {
-      const f=document.getElementById('formEntrada');
-      const selectAlmacen=document.getElementById('almacenEntradaSelect');
-      if (selectAlmacen) {
-        selectAlmacen.value=String(ocavPrecarga.almacen_id);
-        if (selectAlmacen.value!==String(ocavPrecarga.almacen_id)) {
-          alert('Este usuario no puede seleccionar el Almacén de la recepción.');return;
-        }
-        selectAlmacen.dispatchEvent(new Event('change'));
-      }
-      const tipoEntrada=f?.querySelector('select[name="tipo_entrada"]');
-      if(tipoEntrada){const opt=Array.from(tipoEntrada.options).find(o=>o.value.startsWith('E0002'));if(opt)tipoEntrada.value=opt.value;}
-      const proveedor=f?.querySelector('[name="proveedor_nombre"]');if(proveedor)proveedor.value=ocavPrecarga.proveedor||'';
-      const tipoDoc=document.getElementById('tipo_documento');const folioDoc=document.getElementById('folio_documento');
-      if(tipoDoc)tipoDoc.value='REMISION';if(folioDoc)folioDoc.value=ocavPrecarga.folio||'';
-      const obs=f?.querySelector('[name="observaciones"]');
-      if(obs)obs.value=`Desde ${ocavPrecarga.oc_folio} · recepción ${ocavPrecarga.folio}. Aplicación física a Almacén; sin factura POS.`;
-      const vacia=document.getElementById('filaVacia');if(vacia)vacia.remove();
-      for(const l of (ocavPrecarga.lineas||[])) {
-        const producto=productos.find(p=>Number(p.id)===Number(l.producto_id));
-        const sugerida=producto?.ubicacion_sugerida||'';
-        const fila=crearFilaProductoCapturado({producto_id:Number(l.producto_id),codigo:l.codigo,
-          descripcion:l.descripcion,cantidad:Number(l.cantidad),precio:Number(l.costo),lote:l.lote||'',ubicacion:sugerida});
-        // La ubicación es editable, pero no se permite cambiar las piezas verificadas.
-        const loc=fila.querySelector('input[name="ubicacion[]"]');
-        if(loc){loc.type='text';loc.style.width='135px';loc.placeholder='R1N1Z01';
-          fila.children[6].replaceChildren(loc);}
-        const qty=fila.querySelector('input.qty-input');if(qty){qty.readOnly=true;qty.title='Para cambiar cantidades, corrige la recepción; no ajustes existencias aquí.';}
-        const cad=fila.querySelector('input[name="fecha_caducidad[]"]');if(cad)cad.value=l.caducidad||'';
-      }
-      actualizarTotales();
-    }
     // Forzar construcción de referencia inicial (para edición)
     construirReferencia();
 });

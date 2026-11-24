@@ -3,15 +3,13 @@
 require_once __DIR__ . '/../app/helpers/auth.php';
 
 requireLogin();
-// GYD_F1_RESPALDO_BD_VERIFICADA_20261102
-require_once __DIR__ . '/../app/helpers/gyd_f1_objetivo_respaldo.php';
 
 date_default_timezone_set('America/Mexico_City');
 
 $user = currentUser();
 $rol = strtoupper(trim($user['rol'] ?? ''));
 
-if (!in_array($rol, ['ADMINISTRADOR', 'DIRECCION'], true)) {
+if (!in_array($rol, ['ADMINISTRADOR', 'ENCARGADO'], true)) {
     http_response_code(403);
     exit('Acceso denegado.');
 }
@@ -43,7 +41,7 @@ $scriptRespaldoLinux = '/usr/local/bin/backup_almacen.sh';
 // Configuración de la base de datos.
 $dbHost = '127.0.0.1';
 $dbPort = '3307';
-$dbName = getenv('GD_DB_NAME') ?: 'prueba'; // Debe coincidir con app/config/database.php
+$dbName = 'almacen_farmacia';
 $dbUser = 'root';
 $dbPassword = '';
 
@@ -90,8 +88,6 @@ if (
         || !hash_equals($_SESSION['csrf_respaldo'], $tokenRecibido)
     ) {
         $error = 'La solicitud no es válida. Recarga la página e inténtalo nuevamente.';
-    } elseif (($gydF1Error = gyd_f1_validar_destino_respaldo($dbName, $dbPort)) !== null) {
-        $error = $gydF1Error;
     } elseif (
         !$esWindows
         && !is_file($scriptRespaldoLinux)
@@ -863,20 +859,5 @@ function formatearTamano(int $bytes): string
 
 </div>
 
-
-<?php /* GYD_NAV_ROLE_V1 */
-$__gydNavigationAccount = function_exists('isLoggedIn') && isLoggedIn() && function_exists('currentUser')
-    ? (currentUser() ?: []) : [];
-$__gydNavigationRole = strtoupper(trim((string)($__gydNavigationAccount['rol_original'] ?? $__gydNavigationAccount['rol'] ?? '')));
-$__gydNavigationAllowed = in_array($__gydNavigationRole, ['DIRECCION','ADMINISTRADOR','ADMIN','COMPRAS'], true);
-if (!defined('GYD_HIDE_GLOBAL_NAV') && $__gydNavigationAllowed):
-$__gydNavigationHome = $__gydNavigationRole === 'COMPRAS' ? 'erp_compras_inicio.php' : 'dashboard.php';
-?>
-<link rel="stylesheet" href="assets/css/gyd_nav_global.css?v=5">
-<script>window.GYD_NAV_ENABLED=true;window.GYD_NAV_HOME=<?=json_encode($__gydNavigationHome, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;window.GYD_NAV_POS='pos.php';</script>
-<script src="assets/js/gyd_nav_global.js?v=5"></script>
-<?php endif; unset($__gydNavigationAccount,$__gydNavigationRole,$__gydNavigationAllowed,$__gydNavigationHome); ?>
-<!-- GYD_UNA_PESTANA_INTERNA -->
-<script src="assets/js/gyd_una_pestana.js?v=1"></script>
 </body>
 </html>

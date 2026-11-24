@@ -440,19 +440,14 @@
     }
 
     function describirSolicitud(tipo, solicitud) {
-        const esTicketPos = /^POS-[A-F0-9]{12}$/i.test(
-            String(solicitud?.folio_documento || '').trim()
-        );
-        const folio = String(
-            esTicketPos
-                ? (solicitud?.folio_documento || solicitud?.folio || '')
-                : (solicitud?.folio || '')
-        ).trim();
-        const verificador = String(
-            esTicketPos
-                ? (solicitud?.solicitante_nombre || '')
-                : (solicitud?.verificador_nombre || solicitud?.solicitante_nombre || '')
-        ).trim();
+        const folio =
+            String(solicitud?.folio || '').trim();
+        const verificador =
+            String(
+                solicitud?.verificador_nombre
+                || solicitud?.solicitante_nombre
+                || ''
+            ).trim();
         const almacen =
             String(solicitud?.almacen_nombre || '').trim();
         const partes = [];
@@ -462,11 +457,7 @@
         }
 
         if (verificador) {
-            partes.push(
-                esTicketPos
-                    ? `Solicitó el cajero: ${verificador}`
-                    : `Solicita: ${verificador}`
-            );
+            partes.push(`Solicita: ${verificador}`);
         }
 
         if (almacen) {
